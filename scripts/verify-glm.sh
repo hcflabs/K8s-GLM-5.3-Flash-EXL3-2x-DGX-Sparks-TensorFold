@@ -95,8 +95,8 @@ nodes() { printf '%s\n' "leader:${LEADER_SSH}:${WORKER_FABRIC_IP}:${LEADER_FABRI
 
 run_checks() {
   heading "Weights (${MODEL_DIR})"
-  local name ssh_t peer me out gib files
-  while IFS=: read -r name ssh_t peer me; do
+  local name ssh_t peer _ out gib files
+  while IFS=: read -r name ssh_t peer _; do
     out="$(on_node "${ssh_t}" "
       if [ -f ${MODEL_DIR}/config.json ]; then
         du -sb ${MODEL_DIR} | cut -f1
@@ -127,8 +127,8 @@ run_checks() {
   done < <(nodes)
 
   heading "Fabric (${FABRIC_IF} / ${RDMA_DEV})"
-  local name ssh_t peer me out addr state ping_rc
-  while IFS=: read -r name ssh_t peer me; do
+  local name ssh_t peer _ out addr state ping_rc
+  while IFS=: read -r name ssh_t peer _; do
     out="$(on_node "${ssh_t}" "
       ip -4 -brief address show ${FABRIC_IF} 2>/dev/null | awk '{print \$3}'
       cat /sys/class/infiniband/${RDMA_DEV}/ports/1/state 2>/dev/null | awk '{print \$NF}'

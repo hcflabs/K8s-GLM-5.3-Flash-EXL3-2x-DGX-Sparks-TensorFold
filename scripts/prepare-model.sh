@@ -25,6 +25,8 @@ DRY=0
 HOSTS=()
 
 DEFAULT_REPO="Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold"
+# Pinned revision; set to a specific SHA when the upstream model has a known-good snapshot.
+# Leave empty to follow the tip of main.
 DEFAULT_REVISION=""
 
 usage() { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//'; }
@@ -45,6 +47,9 @@ done
 [[ ${#HOSTS[@]} -ge 1 ]] || { echo "error: give at least one user@host (normally both Sparks)" >&2; usage >&2; exit 2; }
 
 REPO="${REPO:-${DEFAULT_REPO}}"
+# Default to pinned revision when not overridden on the command line.
+: "${DEFAULT_REVISION:=}"
+REVISION="${REVISION:-${DEFAULT_REVISION}}"
 
 DIR_NAME="$(basename "${REPO}")"
 DEST="${MODELS_DIR}/${DIR_NAME}"
