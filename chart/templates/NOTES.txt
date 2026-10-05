@@ -1,0 +1,10 @@
+glm-tensorfold {{ .Release.Name }} installed in namespace {{ .Release.Namespace }}.
+
+Cold start takes tens of minutes up to ~2h (weights, profiling, KV sizing).
+  kubectl -n {{ .Release.Namespace }} get pods -o wide
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "glm53.fullname" . }} 8888:{{ .Values.service.port }}
+  curl -s localhost:8888/v1/models   # expect max_model_len: {{ .Values.serving.maxModelLen }}
+{{- if not (include "glm53.authSecretName" .) }}
+
+WARNING: /v1 is unauthenticated. Set auth.existingSecret or auth.apiKey to require a key.
+{{- end }}

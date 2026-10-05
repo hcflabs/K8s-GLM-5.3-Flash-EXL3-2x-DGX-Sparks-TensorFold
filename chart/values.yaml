@@ -1,0 +1,114 @@
+# GLM-5.3-Flash-EXL3 on two DGX Sparks with TensorFold. Names mirror the
+# Ansible inventory vars (gpu_fabric_interface <-> topology.fabric.interface, ...).
+# See ENVS.md.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/miaai-lab/tensorfold-glm53
+  tag: "v0.6.0"
+  # Optional immutable pin; wins over tag when set (e.g. "sha256:...").
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+model:
+  # EXL3 4bpw quant built for TensorFold.
+  repo: Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold
+  revision: ""            # informational; prepare-model.sh pins the download
+  servedName: GLM-5.3-Flash-EXL3
+  # Mount-point name under /models inside the pod (host path is weights.hostPath.*).
+  dirName: GLM-5.3-Flash-EXL3-4bpw-TensorFold
+
+topology:
+  # Node selection. Ansible sets these labels at k3s registration.
+  rankLabels:
+    key: node.tensorfold/rank
+    leader: leader
+    worker: worker
+  gpuToleration:
+    key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+  fabric:
+    # REQUIRED - hardware/network specific, no defaults.
+    masterAddr: ""     # leader's address on the point-to-point fabric
+    workerAddr: ""     # worker's address on the fabric (beacon target)
+    interface: ""      # NCCL_SOCKET_IFNAME: netdev carrying the fabric (see `ip -br link`)
+    rdmaDevice: ""     # NCCL_IB_HCA: RDMA device of that port (see /sys/class/infiniband);
+                       # a wrong value silently falls back to TCP
+    port: 25000                   # torch.distributed master port
+    beaconPort: 25099
+
+weights:
+  # Full checkpoint directory on each node (REQUIRED; worker unless nfs.enabled).
+  # Paths may differ per node.
+  hostPath:
+    leader: ""
+    worker: ""
+  # Opt-in: worker mounts the leader's copy over the fabric instead of its own hostPath.
+  nfs:
+    enabled: false
+    server: ""
+    path: ""
+
+serving:
+  tensorParallelSize: 2      # fixed by topology; informational
+  maxModelLen: 1048576        # 1M-token context
+  kvCacheDtype: fp8           # FP8 KV cache
+  speculative:
+    method: dflash2           # DFlash2 speculative decoding
+    numTokens: 7              # draft tokens per step
+  parallelRequests: 4         # concurrent request streams
+  extraArgs: ""
+  extraEnv: []                # [{name: X, value: Y}]
+
+# /v1 is unauthenticated unless one of these is set. /health never needs a key.
+auth:
+  existingSecret: ""          # operator-managed Secret
+  existingSecretKey: token    # key holding one or more space-separated API keys
+  apiKey: ""                  # chart mints a Secret from this...
+  apiKeys: []                 # ...or from this list
+
+service:
+  type: ClusterIP
+  port: 8888
+
+# Rendered only when `hosts` is non-empty.
+ingress:
+  className: ""
+  annotations: {}
+  hosts: []                   # e.g. [tensorfold.example.com]
+  tls: []                     # [{secretName: x, hosts: [tensorfold.example.com]}]
+
+shm:
+  sizeLimit: 64Gi
+
+resources:
+  requests:
+    cpu: "2"
+    memory: 100Gi
+  limits:
+    nvidia.com/gpu: 1
+
+runtimeClassName: nvidia
+
+# Cold start (weights, profiling, KV sizing) takes tens of minutes
+# up to ~2h; liveness only arms once startup succeeds.
+probes:
+  startup:
+    initialDelaySeconds: 180
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 240
+  liveness:
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 10
+  readiness:
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+podAnnotations: {}
