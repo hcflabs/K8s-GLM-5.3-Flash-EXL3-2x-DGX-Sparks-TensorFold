@@ -1,9 +1,9 @@
 # GLM-5.3-Flash-EXL3 on two DGX Sparks with TensorFold - Kubernetes/k3s
 
-[![ci](https://github.com/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/actions/workflows/ci.yml/badge.svg)](https://github.com/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold)](https://github.com/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/releases)
+[![ci](https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/actions/workflows/ci.yml/badge.svg)](https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold)](https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/releases)
 [![chart](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiaAI-Lab%2FK8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold%2Fmain%2Fchart%2FChart.yaml&query=%24.version&label=chart&color=0F1689)](chart/Chart.yaml)
-[![license](https://img.shields.io/github/license/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold)](LICENSE)
+[![license](https://img.shields.io/github/license/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold)](LICENSE)
 
 A Helm chart plus an Ansible layer that serve
 `Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold` tensor-parallel (TP=2, 1M-token

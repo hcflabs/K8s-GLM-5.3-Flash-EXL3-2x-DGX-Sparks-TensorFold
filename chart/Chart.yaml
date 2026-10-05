@@ -7,8 +7,8 @@ type: application
 version: 0.1.0
 appVersion: "0.6.0"
 kubeVersion: ">=1.28.0-0"
-home: https://github.com/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
+home: https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
 sources:
-  - https://github.com/MiaAI-Lab/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
+  - https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
   - https://github.com/MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold
 keywords: [tensorfold, glm, exl3, dgx-spark, gb10, rdma, k3s]
