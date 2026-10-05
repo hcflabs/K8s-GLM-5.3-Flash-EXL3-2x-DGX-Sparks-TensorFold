@@ -1,0 +1,19 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Helm, Ansible, k3s, NVIDIA DGX Spark (GB10, arm64)
+  We use conventional commits (cliff.toml drives chart versioning).
+  Domain: Kubernetes port of GLM-5.3-Flash-EXL3 on TensorFold across 2x DGX Spark.
+
+rules:
+  proposal:
+    - Keep proposals under 500 words.
+    - Always include a "Non-goals" section.
+  tasks:
+    - Break tasks into chunks of max 2 hours.
+
+operations:
+  apply:
+    guidance:
+      - Keep test summaries concise.
+  archive: {}

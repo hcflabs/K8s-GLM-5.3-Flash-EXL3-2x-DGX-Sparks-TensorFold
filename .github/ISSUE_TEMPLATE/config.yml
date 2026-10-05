@@ -3,9 +3,9 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/security/advisories/new
     about: Report privately. Please do not open a public issue for anything exploitable.
-  - name: Upstream recipe, serving image or hotfix
+  - name: Upstream recipe or serving image
     url: https://github.com/MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/issues
-    about: The Compose recipe, the glm-tensorfold-gx10 image and the hotfixes originate upstream.
-  - name: How do I deploy this?
+    about: The TensorFold recipe and the serving image originate upstream.
+  - name: Deployment help
     url: https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/blob/main/README.md
     about: The README quick start covers provision, weights, apply and verify; ENVS.md maps every value.
