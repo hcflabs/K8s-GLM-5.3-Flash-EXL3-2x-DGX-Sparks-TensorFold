@@ -75,6 +75,43 @@ and requires `HF_TOKEN`. Set `model.ablit: true` and the chart defaults
 `model.repo`/`model.dirName` to the Ablit repo and `serving.thinking` to `false`
 (the Ablit weights answer best directly).
 
+### Recipe tuning (ported)
+
+Upstream `scripts/config.sh` exports about 30 `TF_GLM_*` / `TF_ROCE_*` /
+`TENSORFOLD_*` settings, and the published speed numbers depend on them: q4
+dense weights, RoCE all-gathers, the draft policy, copy drafts, the prefill
+split, multi-prefill, shared-prefix reuse, the L2 prefetch and so on. The image
+bakes in none of them, and each patch's own default is mostly off. Before
+`tuning.env` existed, this chart served bf16 dense weights over NCCL, with none
+of the speed patches turned on.
+
+`tuning.env` now carries the recipe's values, and the chart derives the
+`PARALLEL`-dependent ones (window, RoCE size, memory reserve) the way
+`config.sh` does. Its `serving.maxTokens` default is the recipe's 32768. The
+mapping is in `ENVS.md`. When the pin moves, compare `tuning.env` with what
+`config.sh` exports:
+
+```bash
+env -i HOME=/tmp PATH="$PATH" bash -c 'source scripts/config.sh >/dev/null 2>&1; env' | grep -E '^(TF_|TENSORFOLD_)' | sort
+```
+
+### Kernel cache (ported)
+
+The image compiles its CUDA kernels into `/cache` (`TORCH_EXTENSIONS_DIR`,
+`TRITON_CACHE_DIR`). The recipe keeps that directory under `KERNEL_CACHE`, with
+one folder per image. `kernelCache.hostPath.*` does the same: a host directory
+per rank, with a subdirectory per image tag and digest. When it is empty, the
+chart uses an emptyDir, and the kernels compile again on every start.
+
+### Both rails of a port
+
+One QSFP port of a GB10 is two PCIe x4 rails, and each rail has its own netdev
+and RoCE device. The recipe addresses both and lists both in `NCCL_IB_HCA`. The
+RoCE all-gathers read the same list and use up to two devices. To do the same
+here, set `topology.fabric.rdmaDevice` to `dev0,dev1` once both twins carry an
+address. `topology.fabric.gidIndex` and `ncclChannels` map to the recipe's
+`NCCL_IB_GID_INDEX` and `NCCL_CHANNELS` (4).
+
 ### HF cache / `HF_HUB_OFFLINE` (adapted)
 
 The chart runs the container with `HF_HUB_OFFLINE=1` and serves the downloaded

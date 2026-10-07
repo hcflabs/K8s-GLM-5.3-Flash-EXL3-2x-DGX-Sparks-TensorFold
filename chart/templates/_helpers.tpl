@@ -100,6 +100,14 @@ app.kubernetes.io/component: {{ .component }}
 - {name: PYTORCH_CUDA_ALLOC_CONF, value: "expandable_segments:True"}
 - {name: NVIDIA_DISABLE_FORWARD_COMPATIBILITY, value: "1"}
 - {name: OMP_NUM_THREADS, value: "20"}
+{{- with include "glm53.optional" $v.topology.fabric.gidIndex }}
+- {name: NCCL_IB_GID_INDEX, value: {{ . | quote }}}
+{{- end }}
+{{- with include "glm53.optional" $v.topology.fabric.ncclChannels }}
+- {name: NCCL_MIN_NCHANNELS, value: {{ . | quote }}}
+- {name: NCCL_MAX_NCHANNELS, value: {{ . | quote }}}
+{{- end }}
+{{- include "glm53.tuningEnv" .root }}
 {{- with (include "glm53.authSecretName" .root) }}
 - name: TENSORFOLD_API_KEYS
   valueFrom:
@@ -110,6 +118,42 @@ app.kubernetes.io/component: {{ .component }}
 {{- with $v.serving.extraEnv }}
 {{ toYaml . }}
 {{- end }}
+{{- end -}}
+
+{{/* The recipe's TensorFold settings (tuning.env), plus the ones the recipe derives
+from PARALLEL unless tuning.env sets them. A null value drops the key. */}}
+{{- define "glm53.tuningEnv" -}}
+{{- $v := .Values -}}
+{{- $env := deepCopy (default dict $v.tuning.env) -}}
+{{- $p := int $v.serving.parallelRequests -}}
+{{- if not (hasKey $env "TF_GLM_MULTI_WINDOW") }}
+{{- $_ := set $env "TF_GLM_MULTI_WINDOW" (ternary 64 32 (gt $p 4)) }}
+{{- end }}
+{{- $w := int (get $env "TF_GLM_MULTI_WINDOW" | default 32) -}}
+{{- if not (hasKey $env "TF_ROCE_MAX_KB") }}
+{{- $_ := set $env "TF_ROCE_MAX_KB" (ternary (mul $w 16) 512 (gt $w 32)) }}
+{{- end }}
+{{- if not (hasKey $env "TENSORFOLD_MEMORY_RESERVE_GIB") }}
+{{- $extra := addf (mulf 0.95 (max 0 (sub $p 4))) (mulf 0.04 (max 0 (sub $w 32))) }}
+{{- $_ := set $env "TENSORFOLD_MEMORY_RESERVE_GIB" (printf "%.1f" (addf 14.5 $extra)) }}
+{{- end }}
+{{- range $k := keys $env | sortAlpha }}
+{{- $val := get $env $k }}
+{{- if not (kindIs "invalid" $val) }}
+- {name: {{ $k }}, value: {{ $val | toString | quote }}}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/* A value as a string, or "" when unset (null or ""); 0 stays "0". */}}
+{{- define "glm53.optional" -}}
+{{- if not (kindIs "invalid" .) }}{{ toString . }}{{ end -}}
+{{- end -}}
+
+{{/* Kernel-cache subdirectory: one per image (tag, plus the digest when pinned). */}}
+{{- define "glm53.kernelCacheKey" -}}
+{{- .Values.image.tag -}}
+{{- with .Values.image.digest }}-{{ trimPrefix "sha256:" . | trunc 12 }}{{ end -}}
 {{- end -}}
 
 {{/* Pod spec shared by both ranks. Args: dict "root" . "rank" 0|1 "component" leader|worker */}}
@@ -165,6 +209,7 @@ containers:
       - {name: serve, mountPath: /etc/tensorfold}
       - {name: rdma, mountPath: /dev/infiniband}
       - {name: shm, mountPath: /dev/shm}
+      - {name: kernel-cache, mountPath: /cache}
 {{- if $isLeader }}
     startupProbe:
       httpGet: {path: /health, port: http}
@@ -205,4 +250,12 @@ volumes:
     emptyDir:
       medium: Memory
       sizeLimit: {{ $v.shm.sizeLimit }}
+  - name: kernel-cache
+{{- with (ternary $v.kernelCache.hostPath.leader $v.kernelCache.hostPath.worker $isLeader) }}
+    hostPath:
+      path: {{ printf "%s/%s" (trimSuffix "/" .) (include "glm53.kernelCacheKey" $.root) | quote }}
+      type: DirectoryOrCreate
+{{- else }}
+    emptyDir: {}
+{{- end }}
 {{- end -}}

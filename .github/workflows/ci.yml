@@ -32,6 +32,36 @@ jobs:
           check THINKING 0 --set serving.thinking=false
           check VISION 0
           check VISION 1 --set serving.vision=true
+      - name: recipe tuning env renders on both ranks, derived values follow PARALLEL
+        run: |
+          set -euo pipefail
+          V=(-f chart/ci/test-values.yaml)
+          envs() { helm template ci chart "${V[@]}" "$@" | grep -oE 'name: (TF_[A-Z_]+|TENSORFOLD_MEMORY_RESERVE_GIB|NCCL_[A-Z_]+), value: "[^"]*"' | sort | uniq -c; }
+          want() { local out; out="$(envs "${@:2}")"; grep -q "2 name: $1\"" <<<"${out//, value: \"/=}" ||
+            { echo "want $1 on both ranks (${*:2})"; echo "$out"; exit 1; }; }
+          want TF_GLM_DENSE=q4
+          want TF_GLM_COMM=roce
+          want TF_GLM_MULTI_WINDOW=32
+          want TF_ROCE_MAX_KB=512
+          want TENSORFOLD_MEMORY_RESERVE_GIB=14.5
+          want NCCL_MIN_NCHANNELS=4
+          want TF_GLM_MULTI_WINDOW=64 --set serving.parallelRequests=8
+          want TF_ROCE_MAX_KB=1024 --set serving.parallelRequests=8
+          want TENSORFOLD_MEMORY_RESERVE_GIB=19.6 --set serving.parallelRequests=8
+          want TF_GLM_DENSE=fp8 --set tuning.env.TF_GLM_DENSE=fp8
+          want NCCL_IB_GID_INDEX=0 --set topology.fabric.gidIndex=0
+          if envs --set tuning.env.TF_GLM_DENSE=null | grep -q TF_GLM_DENSE; then echo "null must drop the key"; exit 1; fi
+          if envs --set topology.fabric.ncclChannels=null | grep -q NCHANNELS; then echo "null channels must drop NCCL_*NCHANNELS"; exit 1; fi
+          dup="$(helm template ci chart "${V[@]}" | yq 'select(.kind == "Deployment") | .spec.template.spec.containers[].env | map(.name) | group_by(.) | map(select(length > 1) | .[0]) | .[]')"
+          [[ -z "$dup" ]] || { echo "env names rendered more than once in a container: $dup"; exit 1; }
+      - name: kernel cache is per image and per rank
+        run: |
+          set -euo pipefail
+          V=(-f chart/ci/test-values.yaml)
+          helm template ci chart "${V[@]}" | grep -q 'emptyDir: {}' || { echo "no kernelCache path must render an emptyDir"; exit 1; }
+          out="$(helm template ci chart "${V[@]}" --set kernelCache.hostPath.leader=/c/ --set kernelCache.hostPath.worker=/w --set image.digest=sha256:0123456789abcdef)"
+          grep -q 'path: "/c/v[^"]*-0123456789ab"' <<<"$out" && grep -q 'path: "/w/v[^"]*-0123456789ab"' <<<"$out" ||
+            { echo "kernel cache paths wrong"; grep -A2 'kernel-cache' <<<"$out"; exit 1; }
       - name: shellcheck
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck

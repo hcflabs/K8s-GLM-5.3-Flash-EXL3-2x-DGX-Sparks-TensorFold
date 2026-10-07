@@ -71,6 +71,19 @@ ingress:
 For the gated Ablit weights set `model.ablit: true` (download with `HF_TOKEN`; the
 chart then defaults `serving.thinking` to `false`).
 
+The recipe's speed settings (`tuning.env`: q4 dense weights, RoCE all-gathers,
+draft policy, copy drafts, prefill split, shared-prefix reuse, ...) are on by
+default; see `ENVS.md`. Recommended in addition:
+
+```yaml
+topology:
+  fabric:
+    rdmaDevice: <rail0-dev>,<rail1-dev>   # both rails of the port, once both are addressed
+    gidIndex: 3                           # the RoCE v2 IPv4 GID (check /sys/class/infiniband/*/ports/1/gid_attrs/types)
+kernelCache:
+  hostPath: {leader: <host-dir>, worker: <host-dir>}   # keep compiled kernels across restarts
+```
+
 ## Test
 
 `scripts/check-anchors.sh` (repo root) syntax-checks every embedded script;

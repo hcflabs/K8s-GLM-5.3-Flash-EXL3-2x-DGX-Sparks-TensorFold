@@ -11,7 +11,7 @@
 #   --leader-fabric-ip IP          REQUIRED (chart topology.fabric.masterAddr)
 #   --worker-fabric-ip IP          REQUIRED (chart topology.fabric.workerAddr)
 #   --fabric-if NAME               REQUIRED (chart topology.fabric.interface)
-#   --rdma-dev NAME                REQUIRED (chart topology.fabric.rdmaDevice)
+#   --rdma-dev NAME[,NAME]         REQUIRED (chart topology.fabric.rdmaDevice; every device is checked)
 #   --model-dir PATH               REQUIRED: weights dir on each node (chart weights.hostPath.*)
 #   --min-gib N                    weights are "complete" at >= N GiB (default 160)
 #   --model NAME                   served model name (default GLM-5.3-Flash-EXL3)
@@ -133,7 +133,7 @@ run_checks() {
   while IFS=: read -r name ssh_t peer _; do
     out="$(on_node "${ssh_t}" "
       ip -4 -brief address show ${FABRIC_IF} 2>/dev/null | awk '{print \$3}'
-      cat /sys/class/infiniband/${RDMA_DEV}/ports/1/state 2>/dev/null | awk '{print \$NF}'
+      for d in ${RDMA_DEV//,/ }; do printf '%s ' \"\$(awk '{print \$NF}' /sys/class/infiniband/\$d/ports/1/state 2>/dev/null || echo missing)\"; done; echo
       ping -c 1 -W 2 -I ${FABRIC_IF} ${peer} >/dev/null 2>&1 && echo up || echo down")" ||
       { bad "${name}: unreachable over SSH"; continue; }
     addr="$(sed -n 1p <<<"${out}")"
@@ -144,11 +144,17 @@ run_checks() {
     else
       bad "${name}: no address on ${FABRIC_IF}"
     fi
-    if [[ "${state}" == "ACTIVE" ]]; then
-      ok "${name}: RDMA ${RDMA_DEV} is ${state}"
-    else
-      bad "${name}: RDMA ${RDMA_DEV} is ${state:-missing} (NCCL will fall back to TCP)"
-    fi
+    local dev i=0 devs st
+    read -r -a devs <<<"${RDMA_DEV//,/ }"
+    read -r -a st <<<"${state}"
+    for dev in "${devs[@]}"; do
+      if [[ "${st[i]:-}" == "ACTIVE" ]]; then
+        ok "${name}: RDMA ${dev} is ACTIVE"
+      else
+        bad "${name}: RDMA ${dev} is ${st[i]:-missing} (NCCL skips it, or falls back to TCP)"
+      fi
+      i=$((i + 1))
+    done
     if [[ "${ping_rc}" == "up" ]]; then
       ok "${name}: can reach ${peer} over ${FABRIC_IF}"
     else

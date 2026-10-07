@@ -53,8 +53,14 @@ topology:
     masterAddr: ""     # leader's address on the point-to-point fabric
     workerAddr: ""     # worker's address on the fabric (beacon target)
     interface: ""      # NCCL_SOCKET_IFNAME: netdev carrying the fabric (see `ip -br link`)
-    rdmaDevice: ""     # NCCL_IB_HCA: RDMA device of that port (see /sys/class/infiniband);
-                       # a wrong value silently falls back to TCP
+    rdmaDevice: ""     # NCCL_IB_HCA: RDMA device(s) of that port (see /sys/class/infiniband);
+                       # a wrong value silently falls back to TCP. One QSFP port of a GB10 is
+                       # two PCIe x4 rails (e.g. rocep1s0f0 and roceP2p1s0f0): list both,
+                       # comma-separated, once both twins carry an address, and NCCL and the
+                       # RoCE all-gathers use both (a prompt chunk's gather ~1.8x faster).
+    gidIndex: ""       # NCCL_IB_GID_INDEX (also the RoCE all-gathers'): the RoCE v2 IPv4 GID.
+                       # Empty: NCCL picks one, the all-gathers use index 3.
+    ncclChannels: 4    # NCCL_MIN/MAX_NCHANNELS (recipe: 4); empty leaves NCCL's default
     port: 25000                   # torch.distributed master port
     beaconPort: 25099
 
@@ -79,7 +85,10 @@ weights:
 serving:
   tensorParallelSize: 2      # fixed by topology; informational
   maxModelLen: "1048576"      # 1M-token context (--context); quoted so Helm does not render it as 1.048576e+06
-  maxTokens: 4096             # reply tokens when a request does not say (--max-tokens)
+  # Reply budget (reasoning + answer) when a request sets no max_tokens (--max-tokens).
+  # 32768 as in the recipe: GLM thinks at Max, and TensorFold's 4096 can end a reply
+  # inside its reasoning or a tool call.
+  maxTokens: 32768
   kvCacheDtype: fp8           # FP8 KV cache (TF_GLM_KV=fp8); bf16|int8|int4 via --kv-dtype
   # thinking defaults to `true`, or `false` with model.ablit=true (the Ablit weights
   # answer best directly). Set it explicitly to force a value.
@@ -91,6 +100,64 @@ serving:
   parallelRequests: 4         # concurrent request streams (--parallel)
   extraArgs: ""
   extraEnv: []                # [{name: X, value: Y}]
+
+# The recipe's TensorFold settings (upstream scripts/config.sh at the pinned recipe).
+# The image bakes in none of them, and each patch's own default is mostly "off"
+# (bf16 dense weights, NCCL for every gather, no copy drafts, no prefill split, no
+# shared-prefix reuse ...), so without these the server runs well below the recipe's
+# published speed. Rendered as env on both ranks, sorted by name. Override one key
+# here (not in serving.extraEnv, which would duplicate it); set it to null to leave
+# the patch default. See ENVS.md for what each does.
+#
+# Derived from serving.parallelRequests unless set here, as in the recipe:
+#   TF_GLM_MULTI_WINDOW           32, or 64 past 4 requests
+#   TF_ROCE_MAX_KB                512, or 16 x the window past 32 rows
+#   TENSORFOLD_MEMORY_RESERVE_GIB 14.5 + 0.95 a request past 4 + 0.04 a row past 32
+tuning:
+  env:
+    # 4-bit dense weights (head FP8): the largest decode/prefill gain. Lossy; upstream
+    # issue #18: short non-English prompts can lose the end of turn ("fp8" keeps it,
+    # ~10% slower decode; "bf16" the checkpoint as is).
+    TF_GLM_DENSE: q4
+    # Small all-gathers as one-shot RDMA writes over the RoCE link (patch 0006), +6% decode.
+    TF_GLM_COMM: roce
+    TF_ROCE_WAIT_S: "300"            # the patch's 20 s took both ranks down on long prompts (#54)
+    # Drafting
+    TF_GLM_DFLASH_POLICY: "fnc7:0.3"
+    TF_GLM_COPY_DRAFTS: "1"
+    TF_GLM_COPY_MAX: "15"
+    TF_GLM_WIDE_GRAPHS: "16"
+    TF_GLM_COPY_REPLY_MATCH: "16"
+    TF_GLM_MTP: auto
+    # Prefill
+    TF_GLM_HC_SPLIT: "1"
+    TF_GLM_PREFILL_OVERLAP: "2"
+    TF_GLM_KDA_CHUNKED: "1"
+    TF_GLM_MULTI_PREFILL: "1"
+    TF_GLM_FILL_BUDGET_MS: "200"
+    TF_GLM_FILL_DRAFTS: "1"
+    # Decode kernels
+    TF_GLM_L2PF: "1"
+    TF_GLM_EXL3_LOADS: nc
+    # Concurrency, prompt reuse, memory
+    TF_GLM_MULTI_LONE: "0"
+    TF_GLM_SHARED_PREFIX: "1"
+    TF_GLM_CACHE_ENTRIES: "32"
+    TF_GLM_CACHE_GIB: "12.5"
+    TF_GLM_CLEAR_THINKING: "0"
+    # Streaming
+    TF_GLM_STREAM_SMOOTH: "1"
+    TF_GLM_STREAM_SMOOTH_MS: "400"
+    TENSORFOLD_NO_UPDATE_CHECK: "1"
+
+# Compiled CUDA kernels (the image's TORCH_EXTENSIONS_DIR / TRITON_CACHE_DIR under
+# /cache). Empty: an emptyDir, so every pod start compiles them again. Set a host
+# directory per rank to keep them; the chart uses a subdirectory per image, as the
+# recipe's KERNEL_CACHE does, so a new image never reads an old image's kernels.
+kernelCache:
+  hostPath:
+    leader: ""
+    worker: ""
 
 # /v1 is unauthenticated unless one of these is set. /health never needs a key.
 auth:
