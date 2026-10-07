@@ -48,59 +48,40 @@ See the upstream repo's `patches/` directory and its `CHANGELOG.md`. When the
 image is bumped, update the `image.tag`, `image.digest` (optional pin) and
 `appVersion` in the chart to match.
 
-## Not ported (upstream features this chart does not carry yet)
+## Port status vs upstream
 
-### DFlash2 drafter
+The runtime gaps that were not carried are now ported. The chart serves the
+same published image the upstream bakes and carries the DFlash2 drafter and the
+Ablit option:
 
-Upstream serves the model with DFlash2 speculative decoding: it downloads the
-separate drafter checkpoint `incoai/GLM-5.3-Flash-DFlash2` (pinned revision
-`bf582e4e...`, CC BY-NC-ND 4.0 — non-commercial, no derivatives) into the HF
-cache on each Spark and launches with `--drafter <snapshot path>`.
+### DFlash2 drafter (ported)
 
-This chart downloads and mounts only the main checkpoint
-(`prepare-model.sh` fetches `Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold`;
-`weights.hostPath.*`/`model.dirName` mount just that one directory). So the
-default `serving.speculative.method: dflash2` maps to
-`--drafter incoai/GLM-5.3-Flash-DFlash2`, which the container cannot find
-unless the drafter is made available: download it beside the model and add a
-second volume, or set `serving.speculative.method: none` to use the
-checkpoint's own MTP head (no extra download, but slower decode — upstream
-measures dflash2 ~5-10% faster).
+`prepare-model.sh --drafter` downloads `incoai/GLM-5.3-Flash-DFlash2` (pinned
+revision `bf582e4e...`; CC BY-NC-ND 4.0 — non-commercial, no derivatives)
+beside the checkpoint. The chart mounts it (`weights.drafter.hostPath.*`) and
+`serve.sh` passes `--drafter <path>`. To serve without it (the checkpoint's
+own MTP head; slower decode, upstream measures dflash2 ~5-10% faster) set
+`serving.speculative.method: none`.
 
 `serving.speculative.numTokens` is informational: TensorFold sets the DFlash2
 draft step count from the drafter config / `TF_GLM_*` policy knobs, not from a
 `serve` flag.
 
-### ABLIT weights (`ABLIT=1`, upstream v1.7)
+### Ablit weights (ported)
 
-Upstream can serve the gated Ablit checkpoint
-`Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold-Ablit` (revision `57edefd2...`,
-the published checkpoint abliterated) instead of the published one. The repo is
-**gated**: the account must accept the model's terms, an `HF_TOKEN` is required,
-and upstream refuses to start before the token reaches the gated files. With
-`ABLIT=1`, `THINKING` defaults to `0` (the Ablit weights answer best directly;
-a request can still opt into thinking).
+`prepare-model.sh --ablit` downloads the gated
+`Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold-Ablit` (revision `57edefd2...`)
+and requires `HF_TOKEN`. Set `model.ablit: true` and the chart defaults
+`model.repo`/`model.dirName` to the Ablit repo and `serving.thinking` to `false`
+(the Ablit weights answer best directly).
 
-This chart has no `ABLIT` value, no `HF_TOKEN` secret plumbing, and no Ablit
-repo selection — `serving.thinking` stays `true` regardless of weights. To
-support it later: add a `model.ablit` toggle that overrides `model.repo` with
-the Ablit repo id, require and inject an `HF_TOKEN`, and default
-`serving.thinking` to `false` when Ablit is selected.
+### HF cache / `HF_HUB_OFFLINE` (adapted)
 
-### HF cache / `HF_HUB_OFFLINE`
-
-Upstream serves from a local Hugging Face cache on each Spark
-(`HF_HOME` -> `~/.cache/huggingface`, mounted into the container at
-`/root/.cache/huggingface`) with `HF_HUB_OFFLINE=1` so the ranks read only the
-local cache while the weights load (no network at start). It also keeps
-TensorFold's `--snapshot-dir` prefix snapshots in a mounted cache.
-
-This chart downloads the checkpoint to a plain directory (`hf download
---local-dir`, not the HF cache layout) and mounts it at `/models/<dirName>`. It
-passes the directory directly to `tensorfold serve <dir>`, so no Hub download
-even without `HF_HUB_OFFLINE`, but there is no shared HF cache, no drafter
-cache, no `HF_HUB_OFFLINE` guarantee, and no `HF_TOKEN` plumbing for gated
-repos.
+The chart runs the container with `HF_HUB_OFFLINE=1` and serves the downloaded
+checkpoint and drafter directories directly (`tensorfold serve <dir>`), so no
+network is needed at start. Upstream instead uses Hugging Face's cache layout
+and keeps TensorFold prefix snapshots in a mounted cache; this chart mounts
+explicit checkpoint and drafter directories rather than an HF cache.
 
 ## Git remote and `gh`
 

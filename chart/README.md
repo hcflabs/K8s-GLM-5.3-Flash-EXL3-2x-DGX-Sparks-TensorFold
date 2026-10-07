@@ -49,7 +49,9 @@ spec:
 ## Minimal values
 
 Fabric addressing and weights paths are **required** (no site-specific
-defaults; rendering fails without them). Everything else has an upstream-derived
+defaults; rendering fails without them). Because `serving.speculative.method`
+defaults to `dflash2`, the DFlash2 drafter path is also required; set the method
+to `none` to serve without a drafter. Everything else has an upstream-derived
 default (`values.yaml` documents every key):
 
 ```yaml
@@ -57,12 +59,17 @@ topology:
   fabric: {masterAddr: <leader-ip>, workerAddr: <worker-ip>, interface: <netdev>, rdmaDevice: <rdma-dev>}
 weights:
   hostPath: {leader: <path-to-checkpoint>, worker: <path-to-checkpoint>}
+  drafter:
+    hostPath: {leader: <path-to-drafter>, worker: <path-to-drafter>}   # omit if method: none
 auth:
   existingSecret: my-api-key      # omit for an unauthenticated /v1
 ingress:
   className: traefik
   hosts: [glm.example.com]        # omit for Service-only exposure
 ```
+
+For the gated Ablit weights set `model.ablit: true` (download with `HF_TOKEN`; the
+chart then defaults `serving.thinking` to `false`).
 
 ## Test
 

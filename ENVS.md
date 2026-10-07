@@ -8,9 +8,11 @@ value.
 
 | Upstream knob / flag | Chart value | Default |
 | --- | --- | --- |
-| `MODEL_REPO` | `model.repo` (download: `scripts/prepare-model.sh`) | `Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold` |
+| `MODEL_ID` | `model.repo` (download: `scripts/prepare-model.sh`) | published checkpoint, or `model.ablitRepo` when `model.ablit: true` |
+| `ABLIT` | `model.ablit` (gated; needs `HF_TOKEN` to download) | `false` |
 | `SERVED_MODEL_NAME` | `model.servedName` | `GLM-5.3-Flash-EXL3` |
-| HF cache path | `weights.hostPath.leader` / `.worker` | **required** |
+| checkpoint dir | `weights.hostPath.leader` / `.worker` | **required** |
+| `DFLASH2_ID` | `model.drafter.repo` + `weights.drafter.hostPath.*` | `incoai/GLM-5.3-Flash-DFlash2` |
 | `WORKER_WEIGHTS=nfs` | `weights.nfs.{enabled,server,path}` | off |
 | `HEAD_IP` (leader fabric) | `topology.fabric.masterAddr` | **required** |
 | `WORKER_IP` (worker fabric) | `topology.fabric.workerAddr` | **required** |
@@ -21,9 +23,9 @@ value.
 | `CONTEXT` | `serving.maxModelLen` | `1048576` |
 | `MAX_TOKENS` | `serving.maxTokens` | `4096` |
 | `KV` (fp8 / bf16 / int8 / int4) | `serving.kvCacheDtype` | `fp8` |
-| `THINKING` | `serving.thinking` | `true` |
+| `THINKING` | `serving.thinking` | `true` (or `false` with `model.ablit: true`) |
 | `VISION` | `serving.vision` | `false` |
-| drafter | `serving.speculative.method` (a repo id, `none`, or `auto`) | `dflash2` |
+| drafter | `serving.speculative.method` (`none` or `auto` to disable, else the mounted drafter is used) | `dflash2` |
 | DFlash2 draft count | `serving.speculative.numTokens` (informational; set by the drafter, not a serve flag) | `7` |
 | `PARALLEL` | `serving.parallelRequests` | `4` |
 | anything else | `serving.extraArgs`, `serving.extraEnv` | empty |
@@ -31,7 +33,9 @@ value.
 `serve.sh` maps these onto the TensorFold `serve` CLI (`--context`, `--max-tokens`,
 `--kv-dtype`, `--drafter`, `--parallel`, `--thinking`/`--no-thinking`, `--vision`)
 and sets `TF_GLM_KV=fp8` for the exact FP8 KV cache (upstream passes it as an env
-switch, not a `--kv-dtype` value).
+switch, not a `--kv-dtype` value). It serves the mounted checkpoint and (when a
+drafter is configured) the mounted DFlash2 drafter with `HF_HUB_OFFLINE=1`, so no
+network is needed at start.
 
 ## Ansible inventory <-> chart values
 

@@ -22,7 +22,8 @@
 #   TENSORFOLD_KV_CACHE_DTYPE    fp8 (TF_GLM_KV) or bf16|int8|int4 (--kv-dtype)
 #   TENSORFOLD_THINKING          "1" = --thinking, else --no-thinking
 #   TENSORFOLD_VISION            "1" = --vision
-#   TENSORFOLD_SPEC_METHOD       --drafter (a repo/path, or none|auto)
+#   TENSORFOLD_SPEC_METHOD       none|auto, or the method name (dflash2) served by the mounted drafter
+#   TENSORFOLD_DRAFTER_PATH      mounted path of the drafter checkpoint (used as --drafter)
 #   TENSORFOLD_PARALLEL          --parallel concurrent streams (default 4)
 #   TENSORFOLD_API_KEYS          optional API key(s)
 #   TENSORFOLD_EXTRA_ARGS        extra arguments appended verbatim
@@ -44,6 +45,7 @@ KV_CACHE_DTYPE="${TENSORFOLD_KV_CACHE_DTYPE:-fp8}"
 THINKING="${TENSORFOLD_THINKING:-1}"
 VISION="${TENSORFOLD_VISION:-0}"
 SPEC_METHOD="${TENSORFOLD_SPEC_METHOD:-dflash2}"
+DRAFTER_PATH="${TENSORFOLD_DRAFTER_PATH:-}"
 PARALLEL="${TENSORFOLD_PARALLEL:-4}"
 API_KEYS="${TENSORFOLD_API_KEYS:-}"
 export API_KEYS
@@ -112,12 +114,15 @@ if [[ -n "${DRY_RUN}" ]] || [[ -n "${APPLY_ONLY}" ]]; then
   exit 0
 fi
 
-# DFlash2 is served by its drafter repo id; none|auto pass straight through.
-case "$SPEC_METHOD" in
-  dflash2) DRAFTER_ARG="incoai/GLM-5.3-Flash-DFlash2" ;;
-  none|auto|"") DRAFTER_ARG="$SPEC_METHOD" ;;
-  *) DRAFTER_ARG="$SPEC_METHOD" ;;
-esac
+# A mounted drafter path wins; otherwise none|auto pass through, and any other
+# value is treated as a repo/path.
+if [[ -n "$DRAFTER_PATH" ]]; then
+  DRAFTER_ARG="$DRAFTER_PATH"
+elif [[ "$SPEC_METHOD" == "none" || "$SPEC_METHOD" == "auto" || -z "$SPEC_METHOD" ]]; then
+  DRAFTER_ARG="$SPEC_METHOD"
+else
+  DRAFTER_ARG="$SPEC_METHOD"
+fi
 
 # Build the `tensorfold serve` command (one process per rank, TP=2). The flags
 # mirror the upstream start.sh launch: --tp/--rank/--master(-port) for the

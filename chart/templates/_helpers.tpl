@@ -38,6 +38,24 @@ app.kubernetes.io/component: {{ .component }}
 {{- end -}}
 {{- end -}}
 
+{{/* Effective model repo: model.repo, else the Ablit repo when model.ablit, else the published checkpoint. */}}
+{{- define "glm53.modelRepo" -}}
+{{- $m := .Values.model -}}
+{{- $m.repo | default (ternary $m.ablitRepo "Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold" $m.ablit) -}}
+{{- end -}}
+
+{{/* Effective model directory name mounted under /models. */}}
+{{- define "glm53.modelDir" -}}
+{{- $m := .Values.model -}}
+{{- $m.dirName | default (base (include "glm53.modelRepo" .)) -}}
+{{- end -}}
+
+{{/* True when a mounted DFlash2 drafter is used (anything but none/auto/empty). */}}
+{{- define "glm53.useDrafter" -}}
+{{- $m := .Values.serving.speculative.method -}}
+{{- if and (ne $m "none") (ne $m "auto") (ne $m "") }}true{{ else }}false{{ end -}}
+{{- end -}}
+
 {{/* Secret holding the API keys, or empty when /v1 is unauthenticated. */}}
 {{- define "glm53.authSecretName" -}}
 {{- if .Values.auth.existingSecret -}}
@@ -56,13 +74,21 @@ app.kubernetes.io/component: {{ .component }}
 - {name: TENSORFOLD_BEACON_PORT, value: {{ $v.topology.fabric.beaconPort | quote }}}
 - {name: TENSORFOLD_MASTER_PORT, value: {{ $v.topology.fabric.port | quote }}}
 - {name: TENSORFOLD_API_PORT, value: {{ $v.service.port | quote }}}
-- {name: TENSORFOLD_MODEL_DIR, value: {{ printf "/models/%s" $v.model.dirName | quote }}}
+- {name: TENSORFOLD_MODEL_DIR, value: {{ printf "/models/%s" (include "glm53.modelDir" .root) | quote }}}
 - {name: TENSORFOLD_SERVED_MODEL_NAME, value: {{ $v.model.servedName | quote }}}
 - {name: TENSORFOLD_MAX_MODEL_LEN, value: {{ $v.serving.maxModelLen | quote }}}
 - {name: TENSORFOLD_MAX_TOKENS, value: {{ $v.serving.maxTokens | quote }}}
 - {name: TENSORFOLD_KV_CACHE_DTYPE, value: {{ $v.serving.kvCacheDtype | quote }}}
+{{- if hasKey $v.serving "thinking" }}
 - {name: TENSORFOLD_THINKING, value: {{ $v.serving.thinking | quote }}}
+{{- else }}
+- {name: TENSORFOLD_THINKING, value: {{ ternary "false" "true" (eq $v.model.ablit true) | quote }}}
+{{- end }}
 - {name: TENSORFOLD_VISION, value: {{ $v.serving.vision | quote }}}
+{{- if eq (include "glm53.useDrafter" .root) "true" }}
+- {name: TENSORFOLD_DRAFTER_PATH, value: {{ printf "/models/%s" $v.model.drafter.dirName | quote }}}
+{{- end }}
+- {name: HF_HUB_OFFLINE, value: "1"}
 - {name: TENSORFOLD_SPEC_METHOD, value: {{ $v.serving.speculative.method | quote }}}
 - {name: TENSORFOLD_PARALLEL, value: {{ $v.serving.parallelRequests | quote }}}
 - {name: TENSORFOLD_EXTRA_ARGS, value: {{ $v.serving.extraArgs | quote }}}
@@ -131,7 +157,10 @@ containers:
     securityContext:
       privileged: true
     volumeMounts:
-      - {name: models, mountPath: {{ printf "/models/%s" $v.model.dirName }}, readOnly: true}
+      - {name: models, mountPath: {{ printf "/models/%s" (include "glm53.modelDir" .root) }}, readOnly: true}
+{{- if eq (include "glm53.useDrafter" .root) "true" }}
+      - {name: drafter, mountPath: {{ printf "/models/%s" $v.model.drafter.dirName }}, readOnly: true}
+{{- end }}
       - {name: serve, mountPath: /etc/tensorfold}
       - {name: rdma, mountPath: /dev/infiniband}
       - {name: shm, mountPath: /dev/shm}
@@ -156,6 +185,12 @@ volumes:
 {{- else }}
     hostPath:
       path: {{ required (printf "weights.hostPath.%s is required" (ternary "leader" "worker" $isLeader)) (ternary $v.weights.hostPath.leader $v.weights.hostPath.worker $isLeader) | quote }}
+      type: Directory
+{{- end }}
+{{- if eq (include "glm53.useDrafter" .root) "true" }}
+  - name: drafter
+    hostPath:
+      path: {{ required (printf "weights.drafter.hostPath.%s is required when a drafter is used" (ternary "leader" "worker" $isLeader)) (ternary $v.weights.drafter.hostPath.leader $v.weights.drafter.hostPath.worker $isLeader) | quote }}
       type: Directory
 {{- end }}
   - name: serve

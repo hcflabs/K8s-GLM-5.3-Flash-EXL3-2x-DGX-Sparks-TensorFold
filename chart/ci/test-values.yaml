@@ -9,3 +9,7 @@ weights:
   hostPath:
     leader: /data/models/model
     worker: /data/models/model
+  drafter:
+    hostPath:
+      leader: /data/models/drafter
+      worker: /data/models/drafter

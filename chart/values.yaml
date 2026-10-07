@@ -17,12 +17,26 @@ image:
 imagePullSecrets: []
 
 model:
-  # EXL3 4bpw quant built for TensorFold.
-  repo: Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold
-  revision: ""            # informational; prepare-model.sh pins the download
+  # EXL3 4bpw quant built for TensorFold. `repo`/`dirName` default to the standard
+  # published checkpoint, or to the Ablit weights when `ablit: true` (set them
+  # explicitly to override). `prepare-model.sh` performs the download on the hosts.
+  repo: ""                  # default: Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold (or Ablit when ablit=true)
+  revision: ""              # informational; prepare-model.sh pins the download
   servedName: GLM-5.3-Flash-EXL3
   # Mount-point name under /models inside the pod (host path is weights.hostPath.*).
-  dirName: GLM-5.3-Flash-EXL3-4bpw-TensorFold
+  dirName: ""               # default: repo basename
+  # Gated Ablit weights (upstream v1.7). The repo requires accepting its terms and
+  # an HF_TOKEN to download. With ablit=true the chart serves the Ablit checkpoint
+  # and defaults `serving.thinking` to false (the Ablit weights answer best directly).
+  ablit: false
+  ablitRepo: Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold-Ablit
+  ablitRevision: 57edefd2f5d9b371c8345883304d5af68b52fa24
+  # DFlash2 drafter (incoai/GLM-5.3-Flash-DFlash2): downloaded by prepare-model.sh
+  # into <models-dir>/<drafterDirName> and mounted alongside the weights.
+  drafter:
+    repo: incoai/GLM-5.3-Flash-DFlash2
+    revision: bf582e4eacc1810f76656d1811693ff6c6737d2a
+    dirName: GLM-5.3-Flash-DFlash2
 
 topology:
   # Node selection. Ansible sets these labels at k3s registration.
@@ -50,6 +64,12 @@ weights:
   hostPath:
     leader: ""
     worker: ""
+  # DFlash2 drafter checkpoint (REQUIRED when serving.speculative.method is a drafter,
+  # i.e. anything but `none`/`auto`). Same per-node layout as the weights.
+  drafter:
+    hostPath:
+      leader: ""
+      worker: ""
   # Opt-in: worker mounts the leader's copy over the fabric instead of its own hostPath.
   nfs:
     enabled: false
@@ -61,10 +81,12 @@ serving:
   maxModelLen: "1048576"      # 1M-token context (--context); quoted so Helm does not render it as 1.048576e+06
   maxTokens: 4096             # reply tokens when a request does not say (--max-tokens)
   kvCacheDtype: fp8           # FP8 KV cache (TF_GLM_KV=fp8); bf16|int8|int4 via --kv-dtype
-  thinking: true              # open a think block when the chat template supports it
+  # thinking defaults to `true`, or `false` with model.ablit=true (the Ablit weights
+  # answer best directly). Set it explicitly to force a value.
+  thinking: null
   vision: false               # enable image/video input (--vision; rank 0 runs the vision tower)
   speculative:
-    method: dflash2           # --drafter: a repo id/path, or none|auto (dflash2: incoai/GLM-5.3-Flash-DFlash2)
+    method: dflash2           # --drafter: none|auto to disable, otherwise the mounted drafter is used
     numTokens: 7              # informational; DFlash2 draft count is set by the drafter config, not a serve flag
   parallelRequests: 4         # concurrent request streams (--parallel)
   extraArgs: ""

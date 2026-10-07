@@ -42,11 +42,19 @@ control plane (URL + join token). Control machine: `helm`, `kubectl`,
    # fabric only: --tags gpu_fabric     dry run: --check
    ```
 
-2. **Download weights** on both nodes (~176 GiB each)
+2. **Download weights** on both nodes (the checkpoint ~176 GiB each; the
+   optional DFlash2 drafter ~1-2 GiB). `--drafter` also gets the drafter that
+   `serving.speculative.method: dflash2` needs; `--ablit` fetches the gated Ablit
+   weights (requires `HF_TOKEN`).
 
    ```bash
-   scripts/prepare-model.sh --models-dir /data/models user@spark-leader user@spark-worker
+   # default published checkpoint + DFlash2 drafter
+   scripts/prepare-model.sh --models-dir /data/models --drafter user@spark-leader user@spark-worker
+   # gated Ablit weights (needs HF_TOKEN)
+   HF_TOKEN=hf_... scripts/prepare-model.sh --models-dir /data/models --ablit --drafter user@spark-leader user@spark-worker
    ```
+
+   Point `weights.hostPath.*`/`weights.drafter.hostPath.*` at the printed paths.
 
 3. **Apply** the pinned device plugin, then the chart
 
@@ -79,6 +87,8 @@ Actions tab or `gh workflow run release.yml -f bump=auto`. See
 ## Operations
 
 - **No auth by default**: `/v1` is open unless `auth.existingSecret` or `auth.apiKey(s)` is set. `/health` is always open.
+- **Serving without the drafter**: set `serving.speculative.method: none` to use the checkpoint's own MTP head (no DFlash2; slower decode), otherwise the mounted drafter is used. The container runs with `HF_HUB_OFFLINE=1` and serves the mounted dirs.
+- **Ablit weights**: set `model.ablit: true` to serve the gated Ablit checkpoint (download with `HF_TOKEN`, see `prepare-model.sh`); the chart then defaults `serving.thinking` to `false`.
 - **Image bumps**: the serving image is `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` (pinned v1.8 tag `v0.6.0-31557ed1cef6`). Check `SYNC.md` for upstream pinning.
 - **Rollback**: `helm uninstall glm-flash-exl3-tensorfold -n tensorfold` (removes Deployments, Service, Ingress, ConfigMaps, minted Secret). Delete the namespace to drop everything else. Node-side changes (labels, taint, fabric netplan) are idempotent; re-run `site.yml` to re-assert. To remove the device plugin: `helm uninstall nvidia-device-plugin -n gpu`.
 - **Debugging**: the Sparks' kubelets are often unreachable from the API server, so `kubectl logs/exec` may fail; use `verify-glm.sh` (SSH) or your log stack.
