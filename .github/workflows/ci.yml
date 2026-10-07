@@ -20,6 +20,18 @@ jobs:
           helm template ci chart "${V[@]}" --set auth.apiKey=test > /dev/null
           helm template ci chart "${V[@]}" --set weights.nfs.enabled=true --set weights.nfs.server=192.0.2.1 --set weights.nfs.path=/m > /dev/null
           if helm template ci chart > /dev/null 2>&1; then echo "chart must require site values"; exit 1; fi
+      - name: boolean serving flags render as serve.sh expects ("1"/"0")
+        run: |
+          set -euo pipefail
+          V=(-f chart/ci/test-values.yaml)
+          env_of() { helm template ci chart "${V[@]}" "${@:2}" | grep -m1 "name: TENSORFOLD_$1," | sed 's/.*value: "\(.*\)"}/\1/'; }
+          check() { got="$(env_of "$1" "${@:3}")"; [[ "$got" == "$2" ]] || { echo "TENSORFOLD_$1=$got, want $2 (${*:3})"; exit 1; }; }
+          check THINKING 1
+          check THINKING 0 --set model.ablit=true
+          check THINKING 1 --set model.ablit=true --set serving.thinking=true
+          check THINKING 0 --set serving.thinking=false
+          check VISION 0
+          check VISION 1 --set serving.vision=true
       - name: shellcheck
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck

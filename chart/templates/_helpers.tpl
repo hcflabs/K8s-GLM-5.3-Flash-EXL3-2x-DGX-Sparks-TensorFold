@@ -79,12 +79,13 @@ app.kubernetes.io/component: {{ .component }}
 - {name: TENSORFOLD_MAX_MODEL_LEN, value: {{ $v.serving.maxModelLen | quote }}}
 - {name: TENSORFOLD_MAX_TOKENS, value: {{ $v.serving.maxTokens | quote }}}
 - {name: TENSORFOLD_KV_CACHE_DTYPE, value: {{ $v.serving.kvCacheDtype | quote }}}
-{{- if hasKey $v.serving "thinking" }}
-- {name: TENSORFOLD_THINKING, value: {{ $v.serving.thinking | quote }}}
-{{- else }}
-- {name: TENSORFOLD_THINKING, value: {{ ternary "false" "true" (eq $v.model.ablit true) | quote }}}
+{{- /* serve.sh only treats "1" as on, so booleans are rendered as "1"/"0". */}}
+{{- $thinking := not (eq $v.model.ablit true) }}
+{{- if and (hasKey $v.serving "thinking") (not (kindIs "invalid" $v.serving.thinking)) }}
+{{- $thinking = has (toString $v.serving.thinking | lower) (list "true" "1") }}
 {{- end }}
-- {name: TENSORFOLD_VISION, value: {{ $v.serving.vision | quote }}}
+- {name: TENSORFOLD_THINKING, value: {{ ternary "1" "0" $thinking | quote }}}
+- {name: TENSORFOLD_VISION, value: {{ ternary "1" "0" (has (toString $v.serving.vision | lower) (list "true" "1")) | quote }}}
 {{- if eq (include "glm53.useDrafter" .root) "true" }}
 - {name: TENSORFOLD_DRAFTER_PATH, value: {{ printf "/models/%s" $v.model.drafter.dirName | quote }}}
 {{- end }}
