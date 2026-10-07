@@ -162,8 +162,13 @@ run_checks() {
   else
     for n in $(kubectl get nodes -l "${RANK_KEY}" -o name 2>/dev/null); do
       node_name="${n#node/}"
-      rank="$(kubectl get "${n}" -o jsonpath="{.metadata.labels.${RANK_KEY}}" 2>/dev/null)"
-      ok "${node_name}: rank=${rank}"
+      # jsonpath needs the dots in a label key escaped (node.tensorfold/rank).
+      rank="$(kubectl get "${n}" -o jsonpath="{.metadata.labels.${RANK_KEY//./\\.}}" 2>/dev/null)"
+      if [[ -n "${rank}" ]]; then
+        ok "${node_name}: rank=${rank}"
+      else
+        bad "${node_name}: ${RANK_KEY}=${rank:-<empty>}"
+      fi
     done
   fi
 
