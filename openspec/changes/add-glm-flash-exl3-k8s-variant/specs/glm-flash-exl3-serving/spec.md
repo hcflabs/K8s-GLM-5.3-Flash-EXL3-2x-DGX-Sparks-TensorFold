@@ -7,7 +7,7 @@ Two Deployments (`-leader`, `-worker`), each with `replicas: 1` and `strategy: R
 | Aspect | Value |
 | --- | --- |
 | Runtime | TensorFold v0.6.0 |
-| Image | `ghcr.io/miaai-lab/tensorfold-glm53` |
+| Image | `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` |
 | API port | 8888 |
 | Beacon port | 25099 |
 | TP master port | 25000 |

@@ -28,7 +28,7 @@ separate Deployment, joined over a direct ConnectX-7 fabric with RoCE RDMA.
 ## Non-goals
 
 - The serving image itself (build-time patches are baked upstream into
-  `ghcr.io/miaai-lab/tensorfold-glm53`).
+  `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold`).
 - The EXL3 model weights.
 - Control-plane management — the cluster must already exist.
 - vLLM-style runtime hotfixes (TensorFold uses build-time patches).
@@ -37,7 +37,7 @@ separate Deployment, joined over a direct ConnectX-7 fabric with RoCE RDMA.
 
 | Component | Source |
 | --- | --- |
-| Serving image | `ghcr.io/miaai-lab/tensorfold-glm53:v0.6.0` |
+| Serving image | `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold:v0.6.0-31557ed1cef6` |
 | Model weights | `Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold` |
 | k3s ansible roles | `k3s-io/k3s-ansible` |
 | NVIDIA device plugin | `nvdp/nvidia-device-plugin` |

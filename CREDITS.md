@@ -19,7 +19,7 @@ Upstream credits (see its `CREDITS.md`):
 | --- | --- | --- |
 | [`k3s-io/k3s-ansible`](https://github.com/k3s-io/k3s-ansible) | agent-only node join (`prereq`, `k3s_agent`) | Apache-2.0 |
 | [`ansible.posix`](https://github.com/ansible-collections/ansible.posix) | host config modules | GPL-3.0 |
-| `ghcr.io/miaai-lab/tensorfold-glm53` | prebuilt serving image (TensorFold v0.6.0 + GB10 kernels + 70 patches) | miaai-lab, see image page |
+| `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` | prebuilt serving image (TensorFold v0.6.0 + GB10 kernels + 82 patches, v1.8) | miaai-lab, see image page |
 | [NVIDIA k8s-device-plugin](https://github.com/NVIDIA/k8s-device-plugin) | advertises `nvidia.com/gpu` | Apache-2.0 |
 | [`Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold`](https://huggingface.co/Mia-AiLab/GLM-5.3-Flash-EXL3-4bpw-TensorFold) | default checkpoint (EXL3 4bpw, ~176 GB) | see model card |
 | [`incoai/GLM-5.3-Flash-DFlash2`](https://huggingface.co/incoai/GLM-5.3-Flash-DFlash2) | speculative decoding drafter | see model card |

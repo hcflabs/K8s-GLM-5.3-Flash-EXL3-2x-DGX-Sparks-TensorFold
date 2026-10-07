@@ -35,7 +35,7 @@ In scope — anything this repository ships:
 
 Out of scope — please take these elsewhere:
 
-- **Vulnerabilities in the serving image** (`ghcr.io/miaai-lab/tensorfold-glm53`)
+- **Vulnerabilities in the serving image** (`ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold`)
   or the TensorFold code it contains. Report to the upstream project.
 - **Model behaviour and outputs.** A model producing unwanted output is a
   model-safety question, not a vulnerability in this chart. What *is* in scope

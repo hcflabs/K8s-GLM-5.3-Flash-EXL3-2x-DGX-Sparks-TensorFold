@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/actions/workflows/ci.yml/badge.svg)](https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold)](https://github.com/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold/releases)
-[![chart](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2FMiaAI-Lab%2FK8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold%2Fmain%2Fchart%2FChart.yaml&query=%24.version&label=chart&color=0F1689)](chart/Chart.yaml)
+[![chart](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhcflabs%2FK8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold%2Fmain%2Fchart%2FChart.yaml&query=%24.version&label=chart&color=0F1689)](chart/Chart.yaml)
 [![license](https://img.shields.io/github/license/hcflabs/K8s-GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold)](LICENSE)
 
 A Helm chart plus an Ansible layer that serve
@@ -79,6 +79,6 @@ Actions tab or `gh workflow run release.yml -f bump=auto`. See
 ## Operations
 
 - **No auth by default**: `/v1` is open unless `auth.existingSecret` or `auth.apiKey(s)` is set. `/health` is always open.
-- **Image bumps**: the serving image is ghcr.io/miaai-lab/tensorfold-glm53. Check `SYNC.md` for upstream pinning.
+- **Image bumps**: the serving image is `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` (pinned v1.8 tag `v0.6.0-31557ed1cef6`). Check `SYNC.md` for upstream pinning.
 - **Rollback**: `helm uninstall glm-tensorfold -n tensorfold` (removes Deployments, Service, Ingress, ConfigMaps, minted Secret). Delete the namespace to drop everything else. Node-side changes (labels, taint, fabric netplan) are idempotent; re-run `site.yml` to re-assert. To remove the device plugin: `helm uninstall nvidia-device-plugin -n gpu`.
 - **Debugging**: the Sparks' kubelets are often unreachable from the API server, so `kubectl logs/exec` may fail; use `verify-glm.sh` (SSH) or your log stack.

@@ -55,12 +55,15 @@ app.kubernetes.io/component: {{ .component }}
 - {name: TENSORFOLD_WORKER_ADDR, value: {{ required "topology.fabric.workerAddr is required" $v.topology.fabric.workerAddr | quote }}}
 - {name: TENSORFOLD_BEACON_PORT, value: {{ $v.topology.fabric.beaconPort | quote }}}
 - {name: TENSORFOLD_MASTER_PORT, value: {{ $v.topology.fabric.port | quote }}}
+- {name: TENSORFOLD_API_PORT, value: {{ $v.service.port | quote }}}
 - {name: TENSORFOLD_MODEL_DIR, value: {{ printf "/models/%s" $v.model.dirName | quote }}}
 - {name: TENSORFOLD_SERVED_MODEL_NAME, value: {{ $v.model.servedName | quote }}}
 - {name: TENSORFOLD_MAX_MODEL_LEN, value: {{ $v.serving.maxModelLen | quote }}}
+- {name: TENSORFOLD_MAX_TOKENS, value: {{ $v.serving.maxTokens | quote }}}
 - {name: TENSORFOLD_KV_CACHE_DTYPE, value: {{ $v.serving.kvCacheDtype | quote }}}
+- {name: TENSORFOLD_THINKING, value: {{ $v.serving.thinking | quote }}}
+- {name: TENSORFOLD_VISION, value: {{ $v.serving.vision | quote }}}
 - {name: TENSORFOLD_SPEC_METHOD, value: {{ $v.serving.speculative.method | quote }}}
-- {name: TENSORFOLD_SPEC_TOKENS, value: {{ $v.serving.speculative.numTokens | quote }}}
 - {name: TENSORFOLD_PARALLEL, value: {{ $v.serving.parallelRequests | quote }}}
 - {name: TENSORFOLD_EXTRA_ARGS, value: {{ $v.serving.extraArgs | quote }}}
 - {name: NCCL_IB_HCA, value: {{ required "topology.fabric.rdmaDevice is required" $v.topology.fabric.rdmaDevice | quote }}}

@@ -6,8 +6,11 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  repository: ghcr.io/miaai-lab/tensorfold-glm53
-  tag: "v0.6.0"
+  # Upstream publishes the image at this registry path (its local docker name is
+  # `tensorfold-glm53`; the registry repo is the long form below).
+  repository: ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold
+  # Pinned release image (upstream v1.8: TensorFold v0.6.0 + 82 patches). See SYNC.md.
+  tag: "v0.6.0-31557ed1cef6"
   # Optional immutable pin; wins over tag when set (e.g. "sha256:...").
   digest: ""
   pullPolicy: IfNotPresent
@@ -55,12 +58,15 @@ weights:
 
 serving:
   tensorParallelSize: 2      # fixed by topology; informational
-  maxModelLen: 1048576        # 1M-token context
-  kvCacheDtype: fp8           # FP8 KV cache
+  maxModelLen: "1048576"      # 1M-token context (--context); quoted so Helm does not render it as 1.048576e+06
+  maxTokens: 4096             # reply tokens when a request does not say (--max-tokens)
+  kvCacheDtype: fp8           # FP8 KV cache (TF_GLM_KV=fp8); bf16|int8|int4 via --kv-dtype
+  thinking: true              # open a think block when the chat template supports it
+  vision: false               # enable image/video input (--vision; rank 0 runs the vision tower)
   speculative:
-    method: dflash2           # DFlash2 speculative decoding
-    numTokens: 7              # draft tokens per step
-  parallelRequests: 4         # concurrent request streams
+    method: dflash2           # --drafter: a repo id/path, or none|auto (dflash2: incoai/GLM-5.3-Flash-DFlash2)
+    numTokens: 7              # informational; DFlash2 draft count is set by the drafter config, not a serve flag
+  parallelRequests: 4         # concurrent request streams (--parallel)
   extraArgs: ""
   extraEnv: []                # [{name: X, value: Y}]
 

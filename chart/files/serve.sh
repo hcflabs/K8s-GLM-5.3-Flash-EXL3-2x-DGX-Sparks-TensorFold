@@ -3,7 +3,10 @@
 # serve.sh — Kubernetes entrypoint for GLM-5.3-Flash-EXL3 on TensorFold (GB10)
 # ============================================================================
 # Ported from MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold.
-# Runs inside the ghcr.io/miaai-lab/tensorfold-glm53 container.
+# Runs inside ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold.
+# Upstream launches the image with the container command `tensorfold serve ...`
+# (the image's ENTRYPOINT is NVIDIA's nvidia_entrypoint.sh, CMD is unset), so
+# here we `exec tensorfold serve ...` directly.
 #
 # Env vars (set by the chart via TENSORFOLD_*):
 #   TENSORFOLD_NODE_RANK         0 (leader) or 1 (worker)
@@ -11,13 +14,16 @@
 #   TENSORFOLD_WORKER_ADDR       worker's fabric IP
 #   TENSORFOLD_BEACON_PORT       worker beacon port (default 25099)
 #   TENSORFOLD_MASTER_PORT       torch distributed master port (default 25000)
+#   TENSORFOLD_API_PORT          HTTP serve port (default 8888)
 #   TENSORFOLD_MODEL_DIR         path to the checkpoint
-#   TENSORFOLD_SERVED_MODEL_NAME model id served by the API
-#   TENSORFOLD_MAX_MODEL_LEN     max context length
-#   TENSORFOLD_KV_CACHE_DTYPE    KV cache dtype (default fp8)
-#   TENSORFOLD_SPEC_METHOD       speculative decoding method (default dflash2)
-#   TENSORFOLD_SPEC_TOKENS       draft tokens per step (default 7)
-#   TENSORFOLD_PARALLEL          concurrent request streams (default 4)
+#   TENSORFOLD_SERVED_MODEL_NAME model id served by the API (--name)
+#   TENSORFOLD_MAX_MODEL_LEN     --context (default 1048576)
+#   TENSORFOLD_MAX_TOKENS        --max-tokens reply budget (default 4096)
+#   TENSORFOLD_KV_CACHE_DTYPE    fp8 (TF_GLM_KV) or bf16|int8|int4 (--kv-dtype)
+#   TENSORFOLD_THINKING          "1" = --thinking, else --no-thinking
+#   TENSORFOLD_VISION            "1" = --vision
+#   TENSORFOLD_SPEC_METHOD       --drafter (a repo/path, or none|auto)
+#   TENSORFOLD_PARALLEL          --parallel concurrent streams (default 4)
 #   TENSORFOLD_API_KEYS          optional API key(s)
 #   TENSORFOLD_EXTRA_ARGS        extra arguments appended verbatim
 #   TENSORFOLD_CHECK_ALL=1       dry-run: print every step and exit before launch
@@ -29,12 +35,15 @@ MASTER_ADDR="${TENSORFOLD_MASTER_ADDR:-}"
 WORKER_ADDR="${TENSORFOLD_WORKER_ADDR:-}"
 BEACON_PORT="${TENSORFOLD_BEACON_PORT:-25099}"
 MASTER_PORT="${TENSORFOLD_MASTER_PORT:-25000}"
+API_PORT="${TENSORFOLD_API_PORT:-8888}"
 MODEL_DIR="${TENSORFOLD_MODEL_DIR:-}"
 SERVED_MODEL="${TENSORFOLD_SERVED_MODEL_NAME:-GLM-5.3-Flash-EXL3}"
 MAX_MODEL_LEN="${TENSORFOLD_MAX_MODEL_LEN:-1048576}"
+MAX_TOKENS="${TENSORFOLD_MAX_TOKENS:-4096}"
 KV_CACHE_DTYPE="${TENSORFOLD_KV_CACHE_DTYPE:-fp8}"
+THINKING="${TENSORFOLD_THINKING:-1}"
+VISION="${TENSORFOLD_VISION:-0}"
 SPEC_METHOD="${TENSORFOLD_SPEC_METHOD:-dflash2}"
-SPEC_TOKENS="${TENSORFOLD_SPEC_TOKENS:-7}"
 PARALLEL="${TENSORFOLD_PARALLEL:-4}"
 API_KEYS="${TENSORFOLD_API_KEYS:-}"
 export API_KEYS
@@ -56,8 +65,9 @@ fi
 [[ -n "${MODEL_DIR}" ]]   || { log "FATAL: TENSORFOLD_MODEL_DIR is not set"; exit 1; }
 [[ -d "${MODEL_DIR}" ]]   || { log "FATAL: model dir ${MODEL_DIR} does not exist"; exit 1; }
 [[ -f "${MODEL_DIR}/config.json" ]] || { log "FATAL: config.json missing from ${MODEL_DIR}"; exit 1; }
+[[ -n "$SPEC_METHOD" ]] || { log "FATAL: TENSORFOLD_SPEC_METHOD is not a drafter repo, none, or auto"; exit 1; }
 
-step 1 "configuration validated (rank=${RANK}, model=${SERVED_MODEL}, max_len=${MAX_MODEL_LEN}, kv=${KV_CACHE_DTYPE}, spec=${SPEC_METHOD}/${SPEC_TOKENS}, parallel=${PARALLEL})"
+step 1 "configuration validated (rank=${RANK}, model=${SERVED_MODEL}, context=${MAX_MODEL_LEN}, max_tokens=${MAX_TOKENS}, kv=${KV_CACHE_DTYPE}, drafter=${SPEC_METHOD}, parallel=${PARALLEL})"
 
 # ── 2. Worker: beacon loop ──
 if [[ "${RANK}" == "1" ]]; then
@@ -102,24 +112,46 @@ if [[ -n "${DRY_RUN}" ]] || [[ -n "${APPLY_ONLY}" ]]; then
   exit 0
 fi
 
-# Build the launch command. TensorFold uses torchrun for TP.
+# DFlash2 is served by its drafter repo id; none|auto pass straight through.
+case "$SPEC_METHOD" in
+  dflash2) DRAFTER_ARG="incoai/GLM-5.3-Flash-DFlash2" ;;
+  none|auto|"") DRAFTER_ARG="$SPEC_METHOD" ;;
+  *) DRAFTER_ARG="$SPEC_METHOD" ;;
+esac
+
+# Build the `tensorfold serve` command (one process per rank, TP=2). The flags
+# mirror the upstream start.sh launch: --tp/--rank/--master(-port) for the
+# two-rank CUDA engine, --name/--host/--port for the OpenAI-compatible server,
+# --context/--max-tokens/--parallel/--drafter for generation.
 LAUNCH_ARGS=(
-  --nnodes=2
-  --nproc-per-node=1
-  --node-rank="${RANK}"
-  --master-addr="${MASTER_ADDR}"
-  --master-port="${MASTER_PORT}"
+  serve "$MODEL_DIR"
+  --tp 2
+  --rank "$RANK"
+  --master "$MASTER_ADDR"
+  --master-port "$MASTER_PORT"
+  --name "$SERVED_MODEL"
+  --host 0.0.0.0
+  --port "$API_PORT"
+  --context "$MAX_MODEL_LEN"
+  --max-tokens "$MAX_TOKENS"
+  --parallel "$PARALLEL"
+  --drafter "$DRAFTER_ARG"
 )
 
-# The actual TensorFold serve command will depend on the image's entrypoint.
-# This script assumes the image has a `tensorfold-serve` or equivalent command.
-# For now, exec into the image's default serve path with env-configured params.
-exec torchrun "${LAUNCH_ARGS[@]}" -m tensorfold.serve \
-  --model "${MODEL_DIR}" \
-  --served-model-name "${SERVED_MODEL}" \
-  --max-model-len "${MAX_MODEL_LEN}" \
-  --kv-cache-dtype "${KV_CACHE_DTYPE}" \
-  --speculative-method "${SPEC_METHOD}" \
-  --num-speculative-tokens "${SPEC_TOKENS}" \
-  --max-num-seqs "${PARALLEL}" \
-  ${EXTRA_ARGS}
+# KV cache: the exact fp8 cache is a TensorFold GLM switch (TF_GLM_KV), not a
+# --kv-dtype value; bf16/int8/int4 go through --kv-dtype.
+if [[ "$KV_CACHE_DTYPE" == "fp8" ]]; then
+  export TF_GLM_KV=fp8
+else
+  LAUNCH_ARGS+=(--kv-dtype "$KV_CACHE_DTYPE")
+fi
+
+# Thinking and vision are boolean serve flags.
+if [[ "$THINKING" == "1" ]]; then LAUNCH_ARGS+=(--thinking); else LAUNCH_ARGS+=(--no-thinking); fi
+[[ "$VISION" == "1" ]] && LAUNCH_ARGS+=(--vision)
+
+# shellcheck disable=SC2206
+EXTRA=($EXTRA_ARGS)
+
+log "exec: tensorfold ${LAUNCH_ARGS[*]} ${EXTRA[*]}"
+exec tensorfold "${LAUNCH_ARGS[@]}" "${EXTRA[@]}"
