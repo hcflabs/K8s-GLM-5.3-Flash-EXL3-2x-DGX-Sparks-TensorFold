@@ -60,8 +60,11 @@ jobs:
           V=(-f chart/ci/test-values.yaml)
           helm template ci chart "${V[@]}" | grep -q 'emptyDir: {}' || { echo "no kernelCache path must render an emptyDir"; exit 1; }
           out="$(helm template ci chart "${V[@]}" --set kernelCache.hostPath.leader=/c/ --set kernelCache.hostPath.worker=/w --set image.digest=sha256:0123456789abcdef)"
-          grep -q 'path: "/c/v[^"]*-0123456789ab"' <<<"$out" && grep -q 'path: "/w/v[^"]*-0123456789ab"' <<<"$out" ||
-            { echo "kernel cache paths wrong"; grep -A2 'kernel-cache' <<<"$out"; exit 1; }
+          for want in '/c/v[^"]*-0123456789ab' '/w/v[^"]*-0123456789ab'; do
+            if ! grep -q "path: \"${want}\"" <<<"$out"; then
+              echo "kernel cache path ${want} not rendered"; grep -A3 'name: kernel-cache' <<<"$out"; exit 1
+            fi
+          done
       - name: shellcheck
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
