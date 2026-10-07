@@ -39,7 +39,7 @@ body:
       label: Environment
       description: Chart version, how you installed it, k8s/k3s version, node and GPU, checkpoint lane.
       placeholder: |
-        chart: 0.1.0 (helm get metadata glm-tensorfold -n tensorfold)
+        chart: 0.1.0 (helm get metadata glm-flash-exl3-tensorfold -n tensorfold)
         install: helm upgrade --install / OCI / k3s HelmChart CR
         k3s: v1.xx.y+k3s1
         nodes: 2x DGX Spark (GB10, arm64)

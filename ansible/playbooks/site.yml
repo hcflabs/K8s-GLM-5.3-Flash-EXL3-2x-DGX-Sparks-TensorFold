@@ -1,5 +1,5 @@
 ---
-# Bare DGX Spark hosts -> k3s agents ready for the glm-tensorfold chart.
+# Bare DGX Spark hosts -> k3s agents ready for the glm-flash-exl3-tensorfold chart.
 # Agent-only: only the `prereq` and `k3s_agent` roles run; no server role is used.
 #
 #   ansible-playbook playbooks/site.yml                 # everything

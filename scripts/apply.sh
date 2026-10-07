@@ -15,7 +15,7 @@ PLUGIN_RELEASE="nvidia-device-plugin"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="tensorfold"
-RELEASE="glm-tensorfold"
+RELEASE="glm-flash-exl3-tensorfold"
 CHART="${HERE}/../chart"
 CHART_VERSION=()
 VALUES=()

@@ -21,7 +21,7 @@ app.kubernetes.io/name: {{ include "glm53.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: glm-tensorfold
+app.kubernetes.io/part-of: glm-flash-exl3-tensorfold
 {{- end -}}
 
 {{- define "glm53.selectorLabels" -}}

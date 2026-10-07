@@ -30,7 +30,7 @@ env:
   # Pinned: cliff.toml's template and bump rules are verified against this version.
   GIT_CLIFF_VERSION: v2.14.2
   CHART_DIR: chart
-  CHART_NAME: glm-tensorfold
+  CHART_NAME: glm-flash-exl3-tensorfold
   CHANGELOG: chart/CHANGELOG.md
   # Repository-root copy, kept identical so visitors find a changelog where
   # they expect one while the chart still ships its own for Artifact Hub.

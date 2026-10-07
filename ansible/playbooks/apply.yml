@@ -12,7 +12,7 @@
   vars:
     chart_values: ""
     chart_namespace: tensorfold
-    chart_release: glm-tensorfold
+    chart_release: glm-flash-exl3-tensorfold
   tasks:
     - name: Run scripts/apply.sh
       ansible.builtin.command:

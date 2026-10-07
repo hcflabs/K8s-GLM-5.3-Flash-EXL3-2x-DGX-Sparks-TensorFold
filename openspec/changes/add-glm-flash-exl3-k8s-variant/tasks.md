@@ -2,7 +2,7 @@
 
 ## 1. Chart
 
-- [x] `chart/Chart.yaml` — name `glm-tensorfold`, description, keywords
+- [x] `chart/Chart.yaml` — name `glm-flash-exl3-tensorfold`, description, keywords
 - [x] `chart/values.yaml` — model, topology, serving, auth, probes
 - [x] `chart/templates/_helpers.tpl` — TENSORFOLD_* env vars, pod spec
 - [x] `chart/templates/deployments.yaml` — leader + worker

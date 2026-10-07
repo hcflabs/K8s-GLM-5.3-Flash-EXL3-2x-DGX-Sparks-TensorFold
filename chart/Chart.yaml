@@ -1,5 +1,5 @@
 apiVersion: v2
-name: glm-tensorfold
+name: glm-flash-exl3-tensorfold
 description: >-
   GLM-5.3-Flash-EXL3 served tensor-parallel (TP=2, 1M context, EXL3 4bpw, FP8 KV)
   across two NVIDIA DGX Spark nodes on Kubernetes/k3s with TensorFold.

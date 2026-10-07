@@ -1,4 +1,4 @@
-# glm-tensorfold chart
+# glm-flash-exl3-tensorfold chart
 
 Serves GLM-5.3-Flash-EXL3 tensor-parallel (TP=2) across two DGX Spark
 nodes with TensorFold v0.6.0: a leader Deployment (rank 0, serves `:8888`) and
@@ -6,23 +6,24 @@ a worker Deployment (rank 1). Prerequisites: both nodes joined with the rank
 labels and GPU taint, the fabric up, weights on both nodes, and the NVIDIA
 device plugin installed. See the top-level README for the full flow.
 
-Release name matters: resources are named `<release>-glm-tensorfold-*` unless the
-release name already contains `glm-tensorfold` or `fullnameOverride` is set.
+Release name matters: resources are named `<release>-glm-flash-exl3-tensorfold-*`
+unless the release name already contains `glm-flash-exl3-tensorfold` or
+`fullnameOverride` is set.
 
 ## Install
 
 From a checkout:
 
 ```bash
-helm upgrade --install glm-tensorfold ./chart -n tensorfold --create-namespace -f my-values.yaml
+helm upgrade --install glm-flash-exl3-tensorfold ./chart -n tensorfold --create-namespace -f my-values.yaml
 ```
 
 From OCI (published on tag):
 
 ```bash
-helm upgrade --install glm-tensorfold oci://ghcr.io/<owner>/charts/glm-tensorfold \
+helm upgrade --install glm-flash-exl3-tensorfold oci://ghcr.io/<owner>/charts/glm-flash-exl3-tensorfold \
   --version <version> -n tensorfold --create-namespace -f my-values.yaml
-helm pull oci://ghcr.io/<owner>/charts/glm-tensorfold --version <version>
+helm pull oci://ghcr.io/<owner>/charts/glm-flash-exl3-tensorfold --version <version>
 ```
 
 Via k3s's built-in helm-controller (apply on the cluster):
@@ -31,10 +32,10 @@ Via k3s's built-in helm-controller (apply on the cluster):
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
-  name: glm-tensorfold
+  name: glm-flash-exl3-tensorfold
   namespace: kube-system
 spec:
-  chart: oci://ghcr.io/<owner>/charts/glm-tensorfold
+  chart: oci://ghcr.io/<owner>/charts/glm-flash-exl3-tensorfold
   version: <version>   # see RELEASING.md
   targetNamespace: tensorfold
   createNamespace: true

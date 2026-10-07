@@ -4,7 +4,7 @@
 
 Fixes land on `main` and in the newest published chart release. Only the latest
 release is supported; upgrade with `helm upgrade --install` from
-`oci://ghcr.io/<owner>/charts/glm-tensorfold`.
+`oci://ghcr.io/<owner>/charts/glm-flash-exl3-tensorfold`.
 
 ## Reporting a vulnerability
 

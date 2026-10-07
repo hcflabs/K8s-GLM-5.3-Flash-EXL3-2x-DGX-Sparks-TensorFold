@@ -8,7 +8,7 @@
 set -euo pipefail
 
 NAMESPACE=tensorfold
-SERVICE=glm-tensorfold
+SERVICE=glm-flash-exl3-tensorfold
 MODEL=GLM-5.3-Flash-EXL3
 MAX_LEN=1048576
 PORT="${LOCAL_PORT:-18888}"
