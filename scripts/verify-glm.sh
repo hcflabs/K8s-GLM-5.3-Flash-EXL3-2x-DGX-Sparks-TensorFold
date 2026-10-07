@@ -90,7 +90,9 @@ bad() { printf '%s\n' "  ${RED}problem${RESET} $*"; [[ -n "${FIRST_PROBLEM}" ]] 
 note() { printf '%s\n' "  ${DIM}$*${RESET}"; }
 heading() { printf '\n%s\n' "${BOLD}$*${RESET}"; }
 
-on_node() { ssh -o ConnectTimeout=5 -o BatchMode=yes "$1" "$2" 2>/dev/null; }
+# -n: never read stdin. Callers loop with `while read ... < <(nodes)`, and an
+# ssh that reads stdin swallows the remaining node lines (only leader checked).
+on_node() { ssh -n -o ConnectTimeout=5 -o BatchMode=yes "$1" "$2" 2>/dev/null; }
 nodes() { printf '%s\n' "leader:${LEADER_SSH}:${WORKER_FABRIC_IP}:${LEADER_FABRIC_IP}" "worker:${WORKER_SSH}:${LEADER_FABRIC_IP}:${WORKER_FABRIC_IP}"; }
 
 run_checks() {
