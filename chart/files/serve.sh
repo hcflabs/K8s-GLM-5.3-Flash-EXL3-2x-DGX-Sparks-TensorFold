@@ -78,14 +78,25 @@ if [[ "${RANK}" == "1" ]]; then
     log "dry-run: worker beacon not started"
     exit 0
   fi
-  # Simple TCP beacon: listen until the leader connects, then proceed.
-  while true; do
-    if echo "ready" | nc -l -p "${BEACON_PORT}" -q 1 2>/dev/null; then
-      log "beacon: leader connected"
-      break
-    fi
-    sleep 2
-  done
+  # Simple TCP beacon: answer "ready" until the leader's serve.sh probe (step 3)
+  # has connected. The wait-for-worker init container connects first, so the
+  # beacon keeps answering; it exits once a second connection arrives, or after
+  # 30s with no connection once the first one has been served.
+  # python3, not nc: the serving image ships no netcat, and a missing nc used to
+  # fail silently here (stderr discarded) and spin forever.
+  python3 -c 'import socket,sys
+srv = socket.create_server(("", int(sys.argv[1])))
+served = 0
+while served < 2:
+    srv.settimeout(30 if served else None)
+    try:
+        c, _ = srv.accept()
+    except socket.timeout:
+        break
+    with c:
+        c.sendall(b"ready\n")
+    served += 1' "${BEACON_PORT}" || { log "FATAL: beacon could not listen on :${BEACON_PORT}"; exit 1; }
+  log "beacon: leader connected"
   log "beacon done, entering serve loop"
 fi
 
@@ -94,7 +105,13 @@ if [[ "${RANK}" == "0" ]]; then
   step 3 "waiting for worker beacon at ${WORKER_ADDR}:${BEACON_PORT}"
   if [[ -z "${DRY_RUN}" ]]; then
     deadline=$((SECONDS + 600))
-    until echo "ping" | nc -w 2 "${WORKER_ADDR}" "${BEACON_PORT}" 2>/dev/null | grep -q "ready"; do
+    until python3 -c 'import socket,sys
+try:
+    s = socket.create_connection((sys.argv[1], int(sys.argv[2])), timeout=2)
+    s.sendall(b"ping\n")
+    sys.exit(0 if b"ready" in s.recv(64) else 1)
+except OSError:
+    sys.exit(1)' "${WORKER_ADDR}" "${BEACON_PORT}"; do
       if ((SECONDS > deadline)); then
         log "FATAL: worker beacon at ${WORKER_ADDR}:${BEACON_PORT} did not answer in 10m"
         exit 1
