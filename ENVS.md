@@ -71,6 +71,7 @@ both ranks with the recipe's values. To override one, set its key in
 | `KDA_CHUNKED` | `TF_GLM_KDA_CHUNKED` | `1` |
 | `MULTI_PREFILL` | `TF_GLM_MULTI_PREFILL` | `1` |
 | `FILL_BUDGET_MS` / `FILL_DRAFTS` | `TF_GLM_FILL_BUDGET_MS` / `TF_GLM_FILL_DRAFTS` | `200` / `1` |
+| `FILL_ROWS` | `TF_GLM_FILL_ROWS` | `2048` (at most `TF_GLM_PREFILL_ROWS`) |
 | (fixed) | `TF_GLM_L2PF`, `TF_GLM_EXL3_LOADS` | `1`, `nc` |
 | `EXL3_DEC_ORDER` | `TF_GLM_EXL3_DEC_ORDER` | `0` |
 | (fixed) | `TF_GLM_MULTI_LONE` | `0` |

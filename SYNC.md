@@ -3,13 +3,14 @@
 Derived from `MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold` (read-only git
 remote `upstream`).
 
-- **Pinned upstream ref:** `v1.10` (recipe v1.10, TensorFold v0.6.0, 96 patches)
-- **Image:** the upstream repo applies 96 build-time patches to TensorFold v0.6.0 and
+- **Pinned upstream ref:** `main` at `3fd60df` (after v1.10; TensorFold v0.6.0, 107 patches)
+- **Image:** the upstream repo applies 107 build-time patches to TensorFold v0.6.0 and
   publishes the result at `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold`
-  (tag `v0.6.0-a1897d591f70`, digest `sha256:bc34d7d63f...e568bf5f`, arm64). This chart
-  uses that image directly; there are no vendored runtime hotfixes. Upstream ships the
-  recipe's `release/v1.10` branch tip, which is what this pin tracks; `main` carries
-  further unreleased patches (107 at the time of writing) and is not pinned here.
+  (tag `v0.6.0-e66c657a433d`, digest `sha256:14b5072e8e...4399ccf`, arm64). This chart
+  uses that image directly; there are no vendored runtime hotfixes. The image is the one
+  upstream `main`'s `scripts/config.sh` pins (PR #131). Upstream's CHANGELOG still lists
+  these patches as Unreleased: no release branch carries them yet. The last release is
+  `release/v1.10` (`v0.6.0-a1897d591f70`, 96 patches). To go back to it, set `image.tag`.
 - **Note:** the upstream *local* docker image is named `tensorfold-glm53`;
   the registry repo is the long form above. The chart `image.repository` uses the
   registry path, not the local name.
@@ -28,8 +29,8 @@ the Ansible layer handles node setup, `prepare-model.sh` downloads weights, and
 
 ## Patch set
 
-The upstream image bakes in 96 patches for the v1.10 image
-(`v0.6.0-a1897d591f70`). Notable additions since the pin moved from v1.4:
+The upstream image bakes in 107 patches for the pinned image
+(`v0.6.0-e66c657a433d`). Notable additions since the pin moved from v1.4:
 
 - **0078** — `_take_over` memory fix: a fresh conversation after a long one no
   longer runs both ranks out of memory (`NV_ERR_NO_MEMORY`).
@@ -73,6 +74,35 @@ Added by v1.9 and v1.10 (82 -> 96 patches):
 - **`TENSORFOLD_NUCLEUS_UNION=1`** (config.sh, no patch) — sampled decode tests
   the ranks' candidates together instead of one rank alone, which used to gather
   and sort the whole vocabulary on the CPU (~15 tok/s against greedy's ~58).
+
+Added on upstream `main` after v1.10 (96 -> 107 patches, all the same bits as before
+unless noted; most by BadAd84):
+
+- **0098** — the drafter and vision loaders copy each tensor out of the safetensors
+  mmap first, so the server starts on kindling spark-os (64 KiB pages).
+- **0099** — prompts are tokenized with Python's GIL released: no stall of the other
+  streams at a long request's start.
+- **0100** — the next DFlash2 draft pass starts at the end of a round
+  (`TF_GLM_DRAFT_PRELAUNCH=0` turns it off).
+- **0101, 0105, 0106** — a prompt chunk's pool selection in one pass, its indexer
+  scoring and its sparse attention in CUDA (`TF_GLM_SCORES_CUDA=0`,
+  `TF_GLM_ONEPASS_CUDA=0`: Triton). The sparse-attention kernel applies at 17-24 heads
+  a rank (three Sparks). Two Sparks (32 heads) keep Triton.
+- **0102** — a prompt chunk's dense projections on a faster tile (`TF_GLM_PROMPT_TILE=0`).
+- **0103** — small decode matmuls without thread-block clusters
+  (`TF_GLM_QMM_CLUSTERS=1`: as before). The kernel extension is renamed
+  `tensorfold_qmm_v5`, so a new kernel-cache folder is needed. The chart already keeps
+  one per image.
+- **0104, 0108** — three-Spark decode attention tiles and latent attention in CUDA
+  (`TF_GLM_SEG_CHUNKS_CUDA=0`: Triton).
+- **0107** — the decode indexer, twice as fast with four agents
+  (`TF_GLM_SEG_SCORES_CUDA=0` / `TF_GLM_SEG_SELECT_FLOOR=0`: the old path).
+- **`FILL_ROWS=2048`** (config.sh, no patch) — `TF_GLM_FILL_ROWS`, carried in
+  `tuning.env`: a prompt that fills while other replies decode does so in 2,048-row
+  chunks instead of TensorFold's 1,024, ~10-14% sooner.
+
+The CUDA kernels of 0105-0108 are built when the engine starts. If the build fails,
+the Triton kernel serves (logged once), so the first start on a new image takes longer.
 
 The v1.10 launcher also probes a second rail from its own port before using it
 (`scripts/nodes.sh` `probe_rails`) and drops a rail that cannot reach the peer.

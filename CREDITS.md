@@ -11,6 +11,7 @@ Upstream credits (see its `CREDITS.md`):
 - **Mia's AI Lab** — the TensorFold recipe and EXL3 quantization.
 - **incoai** — DFlash2 speculative decoder (`incoai/GLM-5.3-Flash-DFlash2`).
 - **ashhart** — TensorFold v0.6.0.
+- **BadAd84** — most of the post-v1.10 kernel patches (0098-0108) and `FILL_ROWS`.
 - **Chris Scott** ([chriswritescode-dev](https://github.com/chriswritescode-dev)) — root commit of the upstream vLLM recipe.
 
 ## Dependencies
