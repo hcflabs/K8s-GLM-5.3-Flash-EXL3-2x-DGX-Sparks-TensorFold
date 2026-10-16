@@ -86,6 +86,11 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 - {name: TENSORFOLD_THINKING, value: {{ ternary "1" "0" $thinking | quote }}}
 - {name: TENSORFOLD_VISION, value: {{ ternary "1" "0" (has (toString $v.serving.vision | lower) (list "true" "1")) | quote }}}
+- {name: TENSORFOLD_VISION_URLS, value: {{ ternary "1" "0" (has (toString $v.serving.visionUrls | lower) (list "true" "1")) | quote }}}
+{{- $m := toString $v.serving.speculative.method }}
+{{- if and (or (eq $m "none") (eq $m "")) (ne (toString $v.serving.parallelRequests) "1") }}
+{{- fail (printf "serving.parallelRequests=%v needs the DFlash2 drafter: with serving.speculative.method=none the MTP head serves one request at a time (set parallelRequests: 1)" $v.serving.parallelRequests) }}
+{{- end }}
 {{- if eq (include "glm53.useDrafter" .root) "true" }}
 - {name: TENSORFOLD_DRAFTER_PATH, value: {{ printf "/models/%s" $v.model.drafter.dirName | quote }}}
 {{- end }}

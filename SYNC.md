@@ -126,7 +126,18 @@ revision `bf582e4e...`; CC BY-NC-ND 4.0 — non-commercial, no derivatives)
 beside the checkpoint. The chart mounts it (`weights.drafter.hostPath.*`) and
 `serve.sh` passes `--drafter <path>`. To serve without it (the checkpoint's
 own MTP head; slower decode, upstream measures dflash2 ~5-10% faster) set
-`serving.speculative.method: none`.
+`serving.speculative.method: none` and `serving.parallelRequests: 1`. The MTP head serves
+one request at a time, so the chart refuses to render `none` with more, as upstream's
+`start.sh` refuses `DRAFTER=mtp` with `PARALLEL` above 1.
+
+### Launch details (ported)
+
+- `VISION_URLS=1` (`--vision-urls`): `serving.visionUrls`, with `serving.vision`.
+- `--ulimit stack=67108864`: Kubernetes has no per-pod ulimit, so `serve.sh` runs
+  `ulimit -s 65536` before the exec. It logs a warning when the runtime's hard
+  limit is lower. The rest of upstream's `docker run` flags map to the pod spec
+  (host network, a privileged container in place of `IPC_LOCK` and
+  `memlock=-1`, `/dev/infiniband`, `/dev/shm`).
 
 `serving.speculative.numTokens` is informational: TensorFold sets the DFlash2
 draft step count from the drafter config / `TF_GLM_*` policy knobs, not from a

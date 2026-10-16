@@ -94,8 +94,14 @@ serving:
   # answer best directly). Set it explicitly to force a value.
   thinking: null
   vision: false               # enable image/video input (--vision; rank 0 runs the vision tower)
+  # With vision on, also accept public https image/video URLs (--vision-urls; the pod
+  # then fetches them). Off: only data URLs, as in the recipe.
+  visionUrls: false
   speculative:
-    method: dflash2           # --drafter: none|auto to disable, otherwise the mounted drafter is used
+    # --drafter: none|auto to disable, otherwise the mounted drafter is used. Without
+    # DFlash2 (none) the checkpoint's MTP head serves one request at a time, so the
+    # chart refuses to render with parallelRequests above 1, as the recipe does.
+    method: dflash2
     numTokens: 7              # informational; DFlash2 draft count is set by the drafter config, not a serve flag
   parallelRequests: 4         # concurrent request streams (--parallel)
   extraArgs: ""

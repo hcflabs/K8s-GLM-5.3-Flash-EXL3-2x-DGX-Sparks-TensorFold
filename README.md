@@ -87,7 +87,7 @@ Actions tab or `gh workflow run release.yml -f bump=auto`. See
 ## Operations
 
 - **No auth by default**: `/v1` is open unless `auth.existingSecret` or `auth.apiKey(s)` is set. `/health` is always open.
-- **Serving without the drafter**: set `serving.speculative.method: none` to use the checkpoint's own MTP head (no DFlash2; slower decode), otherwise the mounted drafter is used. The container runs with `HF_HUB_OFFLINE=1` and serves the mounted dirs.
+- **Serving without the drafter**: set `serving.speculative.method: none` to use the checkpoint's own MTP head (no DFlash2; slower decode; one request at a time, so also `serving.parallelRequests: 1`), otherwise the mounted drafter is used. The container runs with `HF_HUB_OFFLINE=1` and serves the mounted dirs.
 - **Ablit weights**: set `model.ablit: true` to serve the gated Ablit checkpoint (download with `HF_TOKEN`, see `prepare-model.sh`); the chart then defaults `serving.thinking` to `false`.
 - **Quality vs precision**: the defaults (`TF_GLM_DENSE: q4`, `serving.kvCacheDtype: fp8`) trade numerical fidelity for throughput, memory and the full 1M context. Against `fp8` dense weights with a `bf16` KV cache, expect more quality regressions on sensitive or long-context work. This is an expected trade-off, not a defect; benchmark your workload before switching.
 - **Image bumps**: the serving image is `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` (pinned upstream-main tag `v0.6.0-e66c657a433d`, 107 patches). Check `SYNC.md` for upstream pinning.

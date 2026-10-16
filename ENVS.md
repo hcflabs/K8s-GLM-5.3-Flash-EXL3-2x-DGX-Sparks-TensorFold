@@ -27,14 +27,16 @@ value.
 | `KV` (fp8 / bf16 / int8 / int4) | `serving.kvCacheDtype` | `fp8` |
 | `THINKING` | `serving.thinking` | `true` (or `false` with `model.ablit: true`) |
 | `VISION` | `serving.vision` | `false` |
-| drafter | `serving.speculative.method` (`none` or `auto` to disable, else the mounted drafter is used) | `dflash2` |
+| `VISION_URLS` | `serving.visionUrls` (public https media URLs; needs `serving.vision`) | `false` |
+| drafter | `serving.speculative.method` (`none` or `auto` to disable, else the mounted drafter is used; `none` needs `parallelRequests: 1`, as upstream's `DRAFTER=mtp` does) | `dflash2` |
 | DFlash2 draft count | `serving.speculative.numTokens` (informational; set by the drafter, not a serve flag) | `7` |
 | `PARALLEL` | `serving.parallelRequests` | `4` |
 | `KERNEL_CACHE` | `kernelCache.hostPath.leader` / `.worker` (a subdirectory per image) | empty (emptyDir: kernels compile on every start) |
 | anything else | `serving.extraArgs`, `serving.extraEnv` | empty |
 
 `serve.sh` maps these onto the TensorFold `serve` CLI (`--context`, `--max-tokens`,
-`--kv-dtype`, `--drafter`, `--parallel`, `--thinking`/`--no-thinking`, `--vision`)
+`--kv-dtype`, `--drafter`, `--parallel`, `--thinking`/`--no-thinking`, `--vision`,
+`--vision-urls`), raises the stack limit to 64 MiB (upstream's `--ulimit stack=67108864`)
 and sets `TF_GLM_KV=fp8` for the exact FP8 KV cache (upstream passes it as an env
 switch, not a `--kv-dtype` value). It serves the mounted checkpoint and (when a
 drafter is configured) the mounted DFlash2 drafter with `HF_HUB_OFFLINE=1`, so no

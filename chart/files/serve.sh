@@ -22,6 +22,7 @@
 #   TENSORFOLD_KV_CACHE_DTYPE    fp8 (TF_GLM_KV) or bf16|int8|int4 (--kv-dtype)
 #   TENSORFOLD_THINKING          "1" = --thinking, else --no-thinking
 #   TENSORFOLD_VISION            "1" = --vision
+#   TENSORFOLD_VISION_URLS       "1" = --vision-urls (only with TENSORFOLD_VISION=1)
 #   TENSORFOLD_SPEC_METHOD       none|auto, or the method name (dflash2) served by the mounted drafter
 #   TENSORFOLD_DRAFTER_PATH      mounted path of the drafter checkpoint (used as --drafter)
 #   TENSORFOLD_PARALLEL          --parallel concurrent streams (default 4)
@@ -44,6 +45,7 @@ MAX_TOKENS="${TENSORFOLD_MAX_TOKENS:-4096}"
 KV_CACHE_DTYPE="${TENSORFOLD_KV_CACHE_DTYPE:-fp8}"
 THINKING="${TENSORFOLD_THINKING:-1}"
 VISION="${TENSORFOLD_VISION:-0}"
+VISION_URLS="${TENSORFOLD_VISION_URLS:-0}"
 SPEC_METHOD="${TENSORFOLD_SPEC_METHOD:-dflash2}"
 DRAFTER_PATH="${TENSORFOLD_DRAFTER_PATH:-}"
 PARALLEL="${TENSORFOLD_PARALLEL:-4}"
@@ -171,6 +173,16 @@ fi
 # Thinking and vision are boolean serve flags.
 if [[ "$THINKING" == "1" ]]; then LAUNCH_ARGS+=(--thinking); else LAUNCH_ARGS+=(--no-thinking); fi
 [[ "$VISION" == "1" ]] && LAUNCH_ARGS+=(--vision)
+[[ "$VISION" == "1" && "$VISION_URLS" == "1" ]] && LAUNCH_ARGS+=(--vision-urls)
+
+# Upstream runs every rank with `--ulimit stack=67108864` (64 MiB). Kubernetes has
+# no per-pod ulimit, so raise the soft limit here before exec; it fails only when
+# the runtime's hard limit is lower, which is logged and left as is.
+if ulimit -s 65536 2>/dev/null; then
+  log "stack limit: $(ulimit -s) KiB"
+else
+  log "WARN: could not raise the stack limit to 64 MiB (hard limit $(ulimit -Hs)); upstream runs with 64 MiB"
+fi
 
 # shellcheck disable=SC2206
 EXTRA=($EXTRA_ARGS)
