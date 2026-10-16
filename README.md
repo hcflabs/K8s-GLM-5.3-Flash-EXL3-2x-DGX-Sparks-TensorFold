@@ -89,6 +89,6 @@ Actions tab or `gh workflow run release.yml -f bump=auto`. See
 - **No auth by default**: `/v1` is open unless `auth.existingSecret` or `auth.apiKey(s)` is set. `/health` is always open.
 - **Serving without the drafter**: set `serving.speculative.method: none` to use the checkpoint's own MTP head (no DFlash2; slower decode), otherwise the mounted drafter is used. The container runs with `HF_HUB_OFFLINE=1` and serves the mounted dirs.
 - **Ablit weights**: set `model.ablit: true` to serve the gated Ablit checkpoint (download with `HF_TOKEN`, see `prepare-model.sh`); the chart then defaults `serving.thinking` to `false`.
-- **Image bumps**: the serving image is `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` (pinned v1.8 tag `v0.6.0-31557ed1cef6`). Check `SYNC.md` for upstream pinning.
+- **Image bumps**: the serving image is `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold` (pinned v1.10 tag `v0.6.0-a1897d591f70`). Check `SYNC.md` for upstream pinning.
 - **Rollback**: `helm uninstall glm-flash-exl3-tensorfold -n tensorfold` (removes Deployments, Service, Ingress, ConfigMaps, minted Secret). Delete the namespace to drop everything else. Node-side changes (labels, taint, fabric netplan) are idempotent; re-run `site.yml` to re-assert. To remove the device plugin: `helm uninstall nvidia-device-plugin -n gpu`.
 - **Debugging**: the Sparks' kubelets are often unreachable from the API server, so `kubectl logs/exec` may fail; use `verify-glm.sh` (SSH) or your log stack.

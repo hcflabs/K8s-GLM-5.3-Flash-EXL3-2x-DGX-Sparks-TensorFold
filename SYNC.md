@@ -3,11 +3,13 @@
 Derived from `MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks-TensorFold` (read-only git
 remote `upstream`).
 
-- **Pinned upstream ref:** `v1.8` (recipe v1.8, TensorFold v0.6.0, 82 patches)
-- **Image:** the upstream repo applies 82 build-time patches to TensorFold v0.6.0 and
+- **Pinned upstream ref:** `v1.10` (recipe v1.10, TensorFold v0.6.0, 96 patches)
+- **Image:** the upstream repo applies 96 build-time patches to TensorFold v0.6.0 and
   publishes the result at `ghcr.io/miaai-lab/glm-5.3-flash-exl3-2x-dgx-sparks-tensorfold`
-  (tag `v0.6.0-31557ed1cef6`, digest `sha256:cbb4b3c662...f12588`). This chart uses
-  that image directly; there are no vendored runtime hotfixes.
+  (tag `v0.6.0-a1897d591f70`, digest `sha256:bc34d7d63f...e568bf5f`, arm64). This chart
+  uses that image directly; there are no vendored runtime hotfixes. Upstream ships the
+  recipe's `release/v1.10` branch tip, which is what this pin tracks; `main` carries
+  further unreleased patches (107 at the time of writing) and is not pinned here.
 - **Note:** the upstream *local* docker image is named `tensorfold-glm53`;
   the registry repo is the long form above. The chart `image.repository` uses the
   registry path, not the local name.
@@ -26,8 +28,8 @@ the Ansible layer handles node setup, `prepare-model.sh` downloads weights, and
 
 ## Patch set
 
-The upstream image bakes in 82 patches for the v1.8 image
-(`v0.6.0-31557ed1cef6`). Notable additions since the pin moved from v1.4:
+The upstream image bakes in 96 patches for the v1.10 image
+(`v0.6.0-a1897d591f70`). Notable additions since the pin moved from v1.4:
 
 - **0078** — `_take_over` memory fix: a fresh conversation after a long one no
   longer runs both ranks out of memory (`NV_ERR_NO_MEMORY`).
@@ -43,6 +45,39 @@ The upstream image bakes in 82 patches for the v1.8 image
 - **0077 (v1.7.1)** — shared-prefix states go by recency, never as superseded.
 - **ABLIT=1 (v1.7)** — the gated Ablit weights on request; `HF_TOKEN` required.
   With `ABLIT=1`, `THINKING` defaults to `0`.
+
+Added by v1.9 and v1.10 (82 -> 96 patches):
+
+- **0084** — the Anthropic Messages API (`/v1/messages`).
+- **0085, 0086** — long-context decode and cold prefill: the DSA indexer's split
+  top-k selection and the prompt-scores loop no longer grow with context.
+- **0087** — `DISPLAY_KV_BACKEND` (`drm` default, `dispram` for kindling
+  spark-os); the GB10 display reservation of patch 0072.
+- **0088** — the spill tier: kept prompt states go to local disk and come back
+  instead of a new prefill, also after a clean restart. Off unless `SPILL_GIB`.
+- **0089** — kept-state limits (`TF_GLM_KEPT_BYTES_GIB`, `TF_GLM_KEEP_PER_CHAT`),
+  both off by default: caps the memory the states own outside the pool, and how
+  many turn-boundary states one conversation can hold.
+- **0090** — the decode expert kernel's launch order (`TF_GLM_EXL3_DEC_ORDER`).
+- **0091** — `TF_GLM_LOOP_GUARD=1` (off by default): a think block that collapsed
+  into a repeated character is cut instead of served.
+- **0092** — the drafter checks its candidate ids against the vocabulary.
+- **0093** — `/v1/responses` accepts OpenAI's `include`.
+- **0094** — chunked request bodies (`Transfer-Encoding: chunked`).
+- **0095** — a streamed request is refused at saturation before its 200 goes out,
+  so it gets the same 429 + `Retry-After` as a non-streamed one.
+- **0096** — `TF_GLM_EFFORT_TAIL=1` (off by default): renders the reasoning-effort
+  line at the tail so switching effort or thinking keeps the prompt cache.
+- **0097** — `TF_GLM_CACHE_SHARE_PCT`: the kept-state count as a share of the
+  pool's budget, since each state is also a reservation of it.
+- **`TENSORFOLD_NUCLEUS_UNION=1`** (config.sh, no patch) — sampled decode tests
+  the ranks' candidates together instead of one rank alone, which used to gather
+  and sort the whole vocabulary on the CPU (~15 tok/s against greedy's ~58).
+
+The v1.10 launcher also probes a second rail from its own port before using it
+(`scripts/nodes.sh` `probe_rails`) and drops a rail that cannot reach the peer.
+That check has no chart counterpart: here the fabric is Ansible's, and
+`playbooks/site.yml` pings each rail (see the top-level repo) instead.
 
 See the upstream repo's `patches/` directory and its `CHANGELOG.md`. When the
 image is bumped, update the `image.tag`, `image.digest` (optional pin) and

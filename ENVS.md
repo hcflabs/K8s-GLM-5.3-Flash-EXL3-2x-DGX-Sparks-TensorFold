@@ -62,6 +62,7 @@ both ranks with the recipe's values. To override one, set its key in
 | `DENSE` | `TF_GLM_DENSE` | `q4` |
 | `COMM` | `TF_GLM_COMM` | `roce` |
 | (fixed) | `TF_ROCE_WAIT_S` | `300` |
+| `NUCLEUS_UNION` | `TENSORFOLD_NUCLEUS_UNION` | `1` |
 | `DRAFT_POLICY` | `TF_GLM_DFLASH_POLICY` | `fnc7:0.3` |
 | `COPY` / `COPY_MAX` | `TF_GLM_COPY_DRAFTS` / `TF_GLM_COPY_MAX` | `1` / `15` |
 | `COPY_CODE` | `TF_GLM_WIDE_GRAPHS`, `TF_GLM_COPY_REPLY_MATCH` | `16`, `16` |
@@ -71,13 +72,22 @@ both ranks with the recipe's values. To override one, set its key in
 | `MULTI_PREFILL` | `TF_GLM_MULTI_PREFILL` | `1` |
 | `FILL_BUDGET_MS` / `FILL_DRAFTS` | `TF_GLM_FILL_BUDGET_MS` / `TF_GLM_FILL_DRAFTS` | `200` / `1` |
 | (fixed) | `TF_GLM_L2PF`, `TF_GLM_EXL3_LOADS` | `1`, `nc` |
+| `EXL3_DEC_ORDER` | `TF_GLM_EXL3_DEC_ORDER` | `0` |
 | (fixed) | `TF_GLM_MULTI_LONE` | `0` |
 | `SHARED_PREFIX` | `TF_GLM_SHARED_PREFIX` | `1` |
 | (fixed) | `TF_GLM_CACHE_ENTRIES` | `32` |
+| `CACHE_SHARE_PCT` | `TF_GLM_CACHE_SHARE_PCT` | `0` |
+| `KEPT_BYTES_GIB` / `KEEP_PER_CHAT` | `TF_GLM_KEPT_BYTES_GIB` / `TF_GLM_KEEP_PER_CHAT` | `0` / `0` |
 | `KV_POOL_GIB` | `TF_GLM_CACHE_GIB` | `12.5` |
 | (fixed) | `TF_GLM_CLEAR_THINKING` | `0` |
+| `EFFORT_TAIL` | `TF_GLM_EFFORT_TAIL` | `0` |
+| `DISPLAY_KV_MIB` / `DISPLAY_KV_BACKEND` | `TF_GLM_DISPLAY_KV_MIB` / `TF_GLM_DISPLAY_KV_BACKEND` | `0` / `drm` |
 | `STREAM_SMOOTH` / `_MS` | `TF_GLM_STREAM_SMOOTH` / `TF_GLM_STREAM_SMOOTH_MS` | `1` / `400` |
 | (fixed) | `TENSORFOLD_NO_UPDATE_CHECK` | `1` |
+
+Not carried, because the recipe leaves them unset: `MAX_QUEUED`
+(`TF_GLM_MAX_QUEUED`, admission at saturation) and the spill tier (`SPILL_GIB`
+and friends; off by default, and it needs a host directory mounted at `/spill`).
 
 The chart derives these from `serving.parallelRequests`, as the recipe does,
 unless `tuning.env` sets them:
@@ -87,3 +97,10 @@ unless `tuning.env` sets them:
 | `TF_GLM_MULTI_WINDOW` | `32`, or `64` past 4 requests |
 | `TF_ROCE_MAX_KB` | `512`, or 16 × the window past 32 rows |
 | `MEMORY_RESERVE_GIB` → `TENSORFOLD_MEMORY_RESERVE_GIB` | `14.5`, plus 0.95 for each request past 4, plus 0.04 for each row past 32 |
+
+The reserve is what the pool is sized against: TensorFold takes `MemAvailable`
+at start minus `TENSORFOLD_MEMORY_RESERVE_GIB`, capped at `TF_GLM_CACHE_GIB`.
+The server then uses about 10 GiB more than its own estimate at a 1M-token
+prompt, so the reserve is what sets the lowest free memory on the rank — the
+recipe's 14.5 leaves about 4.5 GiB. Raise it if anything else shares the node's
+unified memory; the pool shrinks instead.
